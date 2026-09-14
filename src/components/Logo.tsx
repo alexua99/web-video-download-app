@@ -11,7 +11,7 @@ export function Logo() {
   const gloss = `${uid}-gloss`;
 
   return (
-    <Link href="/" className="brand-logo" aria-label={t.brand}>
+    <Link href={`/${locale}`} className="brand-logo" aria-label={t.brand}>
       <svg className="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden>
         <defs>
           <linearGradient id={grad} x1="4" y1="2" x2="36" y2="38" gradientUnits="userSpaceOnUse">

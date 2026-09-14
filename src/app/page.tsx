@@ -1,10 +1,8 @@
-import { AppShell } from "@/components/AppShell";
-import { LanguageProvider } from "@/components/LanguageProvider";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return (
-    <LanguageProvider>
-      <AppShell />
-    </LanguageProvider>
-  );
+export default async function Home() {
+  const headerStore = await headers();
+  const accept = headerStore.get("accept-language")?.toLowerCase() ?? "";
+  redirect(accept.includes("uk") ? "/uk" : "/en");
 }

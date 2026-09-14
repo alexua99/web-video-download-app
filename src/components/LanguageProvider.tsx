@@ -1,22 +1,8 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useSyncExternalStore,
-} from "react";
-import {
-  messages,
-  parseLocale,
-  type Locale,
-  type Messages,
-} from "@/lib/i18n";
-
-const STORAGE_KEY = "clip-locale";
-const listeners = new Set<() => void>();
+import { createContext, useContext, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { messages, type Locale, type Messages } from "@/lib/i18n";
 
 type LanguageContextValue = {
   locale: Locale;
@@ -26,51 +12,24 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-function emit() {
-  listeners.forEach((listener) => listener());
-}
-
-function readStoredLocale(): Locale {
-  const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (saved === "en" || saved === "uk") return saved;
-  return navigator.language.toLowerCase().startsWith("uk") ? "uk" : "en";
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-function getSnapshot() {
-  return readStoredLocale();
-}
-
-function getServerSnapshot(): Locale {
-  return "uk";
-}
-
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const locale = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  const setLocale = useCallback((next: Locale) => {
-    window.localStorage.setItem(STORAGE_KEY, parseLocale(next));
-    emit();
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.lang = locale;
-    document.title = messages[locale].metaTitle;
-  }, [locale]);
+export function LanguageProvider({
+  locale,
+  children,
+}: {
+  locale: Locale;
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
 
   const value = useMemo(
     () => ({
       locale,
-      setLocale,
+      setLocale: (next: Locale) => {
+        router.push(`/${next}`);
+      },
       t: messages[locale],
     }),
-    [locale, setLocale],
+    [locale, router],
   );
 
   return (

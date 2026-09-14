@@ -33,7 +33,7 @@ body {
   display: flex;
   min-height: 100dvh;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
   background:
     radial-gradient(1200px 600px at 50% -10%, rgba(244, 63, 94, 0.18), transparent 55%),
     linear-gradient(180deg, #120814 0%, #07060c 42%, #05040a 100%);
@@ -96,6 +96,7 @@ body {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.lang-switch a,
 .lang-switch button {
   border: 0;
   border-radius: 999px;
@@ -105,9 +106,11 @@ body {
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
+  text-decoration: none;
   cursor: pointer;
 }
 
+.lang-switch a[aria-current="page"],
 .lang-switch button[aria-pressed="true"] {
   background: #fff;
   color: #1a0610;
@@ -314,6 +317,102 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.seo-panel {
+  width: 100%;
+  max-width: 48rem;
+  margin: 3.5rem auto 0;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.seo-heading {
+  margin: 0 0 1rem;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.35rem;
+  color: white;
+}
+
+.seo-grid {
+  display: grid;
+  gap: 2rem;
+}
+
+.feature-list,
+.how-list,
+.faq-list {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature-card,
+.how-list li,
+.faq-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem 1.1rem;
+}
+
+.feature-card h3,
+.how-list h3 {
+  margin: 0 0 0.35rem;
+  color: white;
+  font-size: 1rem;
+}
+
+.feature-card p,
+.how-list p,
+.faq-item p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.58);
+  line-height: 1.55;
+}
+
+.how-list li {
+  display: flex;
+  gap: 0.9rem;
+  align-items: flex-start;
+}
+
+.how-index {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(244, 63, 94, 0.2);
+  color: #fecdd3;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.faq-block {
+  margin-top: 2.2rem;
+}
+
+.faq-item summary {
+  cursor: pointer;
+  color: white;
+  font-weight: 700;
+}
+
+.faq-item p {
+  margin-top: 0.65rem;
+}
+
+footer a {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+@media (min-width: 768px) {
+  .seo-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @keyframes shimmer {

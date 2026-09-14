@@ -5,9 +5,9 @@ export const messages = {
   en: {
     brand: "Clip",
     tagline: "Local downloader · no account",
-    title: "Download any video",
+    title: "Download YouTube, TikTok and Instagram videos",
     subtitle:
-      "Paste a link — the app finds the clip, shows a preview, and saves the file to your computer.",
+      "Paste a YouTube, TikTok, or Instagram link and save the video as MP4 or the audio as MP3.",
     urlLabel: "Video link",
     placeholder: "Paste a YouTube, TikTok, or Instagram link",
     paste: "Paste",
@@ -27,9 +27,9 @@ export const messages = {
     downloading: "Downloading {progress}%",
     footer:
       "Only download content you have the rights to. Instagram sometimes needs a cookies.txt file in the project root.",
-    metaTitle: "Clip — download videos",
+    metaTitle: "Download YouTube, TikTok & Instagram Videos | Clip",
     metaDescription:
-      "Download videos from YouTube, TikTok, and Instagram in a couple of clicks.",
+      "Free online video downloader for YouTube, TikTok, and Instagram. Save Shorts, Reels, and clips as MP4 or MP3.",
     language: "Language",
     empty_url: "Paste a link to a video.",
     invalid_url: "Invalid link. Use a full URL starting with https://",
@@ -68,9 +68,9 @@ export const messages = {
   uk: {
     brand: "Кліп",
     tagline: "Локальний завантажувач · без акаунта",
-    title: "Завантаж будь‑яке відео",
+    title: "Завантажити відео з YouTube, TikTok і Instagram",
     subtitle:
-      "Вставте посилання — застосунок сам знайде ролик, покаже прев’ю і збереже файл на комп’ютер.",
+      "Вставте посилання на YouTube, TikTok або Instagram і збережіть відео у MP4 або звук у MP3.",
     urlLabel: "Посилання на відео",
     placeholder: "Вставте посилання на YouTube, TikTok або Instagram",
     paste: "Вставити",
@@ -90,9 +90,9 @@ export const messages = {
     downloading: "Завантажуємо {progress}%",
     footer:
       "Завантажуйте лише те, на що маєте права. Instagram іноді потребує файл cookies.txt у корені проєкту.",
-    metaTitle: "Кліп — завантажити відео",
+    metaTitle: "Завантажити відео з YouTube, TikTok і Instagram | Кліп",
     metaDescription:
-      "Завантажуйте відео з YouTube, TikTok і Instagram за кілька кліків.",
+      "Безкоштовний завантажувач відео з YouTube, TikTok та Instagram. Зберігайте Shorts, Reels і кліпи у MP4 або MP3.",
     language: "Мова",
     empty_url: "Вставте посилання на відео.",
     invalid_url: "Некоректне посилання. Потрібен повний URL, що починається з https://",

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Manrope, Unbounded } from "next/font/google";
+import { getSiteUrl } from "@/lib/seo";
 import "./globals.css";
 
 const display = Unbounded({
@@ -14,15 +16,33 @@ const sans = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Clip — download videos | Кліп — завантажити відео",
-  description:
-    "Download videos from YouTube, TikTok, and Instagram. Завантажуйте відео з YouTube, TikTok і Instagram.",
+  metadataBase: new URL(getSiteUrl()),
+  applicationName: "Clip",
+  category: "utilities",
+  authors: [{ name: "Clip" }],
+  creator: "Clip",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+  },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const headerStore = await headers();
+  const locale = headerStore.get("x-locale") === "en" ? "en" : "uk";
+
   return (
     <html
-      lang="uk"
+      lang={locale}
       className={`${display.variable} ${sans.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>
