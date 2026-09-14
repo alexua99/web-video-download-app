@@ -78,10 +78,11 @@ body {
 
 .brand-wordmark {
   font-family: var(--font-display), sans-serif;
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   line-height: 1;
+  white-space: nowrap;
   background: linear-gradient(180deg, #ffffff 20%, #fbcfe8 100%);
   -webkit-background-clip: text;
   background-clip: text;

@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
 
 export function Logo() {
-  const { locale, t } = useLanguage();
+  const { locale } = useLanguage();
   const uid = useId().replace(/:/g, "");
   const grad = `${uid}-grad`;
   const gloss = `${uid}-gloss`;
 
   return (
-    <Link href={`/${locale}`} className="brand-logo" aria-label={t.brand}>
+    <Link href={`/${locale}`} className="brand-logo" aria-label="Download App">
       <svg className="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden>
         <defs>
           <linearGradient id={grad} x1="4" y1="2" x2="36" y2="38" gradientUnits="userSpaceOnUse">
@@ -51,9 +51,7 @@ export function Logo() {
         />
         <rect x="4" y="4" width="32" height="12" rx="8" fill={`url(#${gloss})`} />
       </svg>
-      <span className="brand-wordmark">
-        {locale === "uk" ? "Кліп" : "Clip"}
-      </span>
+      <span className="brand-wordmark">Download App</span>
     </Link>
   );
 }
