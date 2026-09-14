@@ -1,3 +1,5 @@
+import { UrlError } from "@/lib/errors";
+
 export type Platform = "youtube" | "tiktok" | "instagram";
 
 const PLATFORM_HOSTS: Record<Platform, string[]> = {
@@ -28,12 +30,7 @@ const PLATFORM_HOSTS: Record<Platform, string[]> = {
   ],
 };
 
-export class UrlError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "UrlError";
-  }
-}
+export { UrlError };
 
 export function extractUrl(raw: string): string {
   const trimmed = raw.trim();
@@ -41,18 +38,18 @@ export function extractUrl(raw: string): string {
   const candidate = (match ? match[0] : trimmed).replace(/[)\].,;]+$/g, "");
 
   if (!candidate) {
-    throw new UrlError("Вставьте ссылку на видео.");
+    throw new UrlError("empty_url");
   }
 
   let parsed: URL;
   try {
     parsed = new URL(candidate);
   } catch {
-    throw new UrlError("Некорректная ссылка. Нужен полный URL, начиная с https://");
+    throw new UrlError("invalid_url");
   }
 
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new UrlError("Разрешены только ссылки http и https.");
+    throw new UrlError("http_only");
   }
 
   return parsed.toString();
@@ -71,9 +68,7 @@ export function detectPlatform(url: string): Platform {
     }
   }
 
-  throw new UrlError(
-    "Поддерживаются только YouTube, TikTok и Instagram. Другие сайты недоступны.",
-  );
+  throw new UrlError("unsupported_platform");
 }
 
 export function platformLabel(platform: Platform): string {

@@ -3,8 +3,10 @@ import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
-import { detectPlatform, extractUrl, UrlError } from "@/lib/platforms";
+import { detectPlatform, extractUrl } from "@/lib/platforms";
 import { downloadVideo, safeFilename, YtDlpError } from "@/lib/ytdlp";
+import { jsonError, localeFromBody } from "@/lib/api";
+import type { Locale } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,7 +44,7 @@ async function findDownloadedFile(directory: string): Promise<string> {
   );
 
   if (media.length === 0) {
-    throw new YtDlpError("Файл скачался, но его не удалось найти на диске.");
+    throw new YtDlpError("file_not_found");
   }
 
   const ranked = await Promise.all(
@@ -59,9 +61,15 @@ async function findDownloadedFile(directory: string): Promise<string> {
 
 export async function POST(request: Request) {
   let tempDir: string | null = null;
+  let locale: Locale = "en";
 
   try {
-    const body = (await request.json()) as { url?: string; quality?: string };
+    const body = (await request.json()) as {
+      url?: string;
+      quality?: string;
+      locale?: unknown;
+    };
+    locale = localeFromBody(body);
     const url = extractUrl(body.url ?? "");
     detectPlatform(url);
     const quality = body.quality?.trim() || "best";
@@ -109,18 +117,6 @@ export async function POST(request: Request) {
       await rm(tempDir, { recursive: true, force: true });
     }
 
-    const message =
-      error instanceof UrlError || error instanceof YtDlpError
-        ? error.message
-        : "Не удалось скачать видео.";
-
-    const status =
-      error instanceof UrlError
-        ? 400
-        : error instanceof YtDlpError
-          ? 422
-          : 500;
-
-    return Response.json({ error: message }, { status });
+    return jsonError(error, locale, "download_failed");
   }
 }

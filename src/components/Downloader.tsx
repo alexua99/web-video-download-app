@@ -1,17 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useLanguage } from "@/components/LanguageProvider";
+import {
+  interpolate,
+  isErrorCode,
+  qualityLabel,
+  type ErrorCode,
+} from "@/lib/i18n";
 import type { Platform } from "@/lib/platforms";
 import type { VideoFormatOption, VideoInfo } from "@/lib/ytdlp";
 
 type InfoResponse = VideoInfo & { platform: Platform };
 type Status = "idle" | "loading-info" | "ready" | "downloading";
-
-const PLATFORMS: { id: Platform; name: string; hint: string }[] = [
-  { id: "youtube", name: "YouTube", hint: "ролики и Shorts" },
-  { id: "tiktok", name: "TikTok", hint: "клипы" },
-  { id: "instagram", name: "Instagram", hint: "Reels и посты" },
-];
 
 function platformFromUrl(value: string): Platform | null {
   try {
@@ -27,14 +28,14 @@ function platformFromUrl(value: string): Platform | null {
   return null;
 }
 
-async function readError(response: Response): Promise<string> {
+async function readErrorCode(response: Response): Promise<ErrorCode> {
   try {
-    const data = (await response.json()) as { error?: string };
-    if (data.error) return data.error;
+    const data = (await response.json()) as { code?: string };
+    if (data.code && isErrorCode(data.code)) return data.code;
   } catch {
     // not json
   }
-  return "Что-то пошло не так. Попробуйте ещё раз.";
+  return "generic";
 }
 
 function filenameFromHeaders(response: Response): string {
@@ -57,14 +58,20 @@ function filenameFromHeaders(response: Response): string {
 }
 
 export function Downloader() {
+  const { locale, t } = useLanguage();
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState<Status>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorCode | null>(null);
   const [info, setInfo] = useState<InfoResponse | null>(null);
   const [quality, setQuality] = useState("best");
   const [progress, setProgress] = useState<number | null>(null);
 
   const guessedPlatform = useMemo(() => platformFromUrl(url.trim()), [url]);
+  const platforms = [
+    { id: "youtube" as const, name: "YouTube", hint: t.youtubeHint },
+    { id: "tiktok" as const, name: "TikTok", hint: t.tiktokHint },
+    { id: "instagram" as const, name: "Instagram", hint: t.instagramHint },
+  ];
 
   async function fetchInfo(event: React.FormEvent) {
     event.preventDefault();
@@ -77,11 +84,11 @@ export function Downloader() {
       const response = await fetch("/api/info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, locale }),
       });
 
       if (!response.ok) {
-        throw new Error(await readError(response));
+        throw await readErrorCode(response);
       }
 
       const data = (await response.json()) as InfoResponse;
@@ -90,7 +97,7 @@ export function Downloader() {
       setStatus("ready");
     } catch (err) {
       setStatus("idle");
-      setError(err instanceof Error ? err.message : "Не удалось разобрать ссылку.");
+      setError(typeof err === "string" && isErrorCode(err) ? err : "parse_link");
     }
   }
 
@@ -104,11 +111,15 @@ export function Downloader() {
       const response = await fetch("/api/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: info.webpageUrl || url, quality }),
+        body: JSON.stringify({
+          url: info.webpageUrl || url,
+          quality,
+          locale,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error(await readError(response));
+        throw await readErrorCode(response);
       }
 
       const filename = filenameFromHeaders(response);
@@ -116,7 +127,7 @@ export function Downloader() {
       const body = response.body;
 
       if (!body) {
-        throw new Error("Сервер не вернул файл.");
+        throw "no_file" satisfies ErrorCode;
       }
 
       const reader = body.getReader();
@@ -155,7 +166,9 @@ export function Downloader() {
     } catch (err) {
       setStatus("ready");
       setProgress(null);
-      setError(err instanceof Error ? err.message : "Не удалось скачать файл.");
+      setError(
+        typeof err === "string" && isErrorCode(err) ? err : "download_failed",
+      );
     }
   }
 
@@ -167,7 +180,7 @@ export function Downloader() {
         setError(null);
       }
     } catch {
-      setError("Нет доступа к буферу обмена. Вставьте ссылку вручную.");
+      setError("clipboard");
     }
   }
 
@@ -176,13 +189,13 @@ export function Downloader() {
       <form onSubmit={fetchInfo} className="relative">
         <div className="search-shell">
           <label className="sr-only" htmlFor="video-url">
-            Ссылка на видео
+            {t.urlLabel}
           </label>
           <input
             id="video-url"
             value={url}
             onChange={(event) => setUrl(event.target.value)}
-            placeholder="Вставьте ссылку на YouTube, TikTok или Instagram"
+            placeholder={t.placeholder}
             autoComplete="off"
             inputMode="url"
             className="search-input"
@@ -195,7 +208,7 @@ export function Downloader() {
               onClick={pasteFromClipboard}
               disabled={status === "loading-info" || status === "downloading"}
             >
-              Вставить
+              {t.paste}
             </button>
             <button
               type="submit"
@@ -206,24 +219,27 @@ export function Downloader() {
                 status === "downloading"
               }
             >
-              {status === "loading-info" ? "Ищем…" : "Найти"}
+              {status === "loading-info" ? t.searching : t.find}
             </button>
           </div>
         </div>
         {guessedPlatform ? (
           <p className="mt-3 text-sm text-white/55">
-            Похоже на {PLATFORMS.find((item) => item.id === guessedPlatform)?.name}
+            {interpolate(t.looksLike, {
+              platform:
+                platforms.find((item) => item.id === guessedPlatform)?.name ??
+                guessedPlatform,
+            })}
           </p>
         ) : (
-          <p className="mt-3 text-sm text-white/40">
-            Подойдёт обычная ссылка, Shorts, Reels или клип из ТикТока.
-          </p>
+          <p className="mt-3 text-sm text-white/40">{t.urlHint}</p>
         )}
       </form>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        {PLATFORMS.map((platform) => {
-          const active = guessedPlatform === platform.id || info?.platform === platform.id;
+        {platforms.map((platform) => {
+          const active =
+            guessedPlatform === platform.id || info?.platform === platform.id;
           return (
             <div
               key={platform.id}
@@ -231,7 +247,9 @@ export function Downloader() {
             >
               <PlatformMark platform={platform.id} />
               <div>
-                <div className="text-sm font-semibold text-white">{platform.name}</div>
+                <div className="text-sm font-semibold text-white">
+                  {platform.name}
+                </div>
                 <div className="text-xs text-white/45">{platform.hint}</div>
               </div>
             </div>
@@ -241,7 +259,7 @@ export function Downloader() {
 
       {error ? (
         <div className="error-banner" role="alert">
-          {error}
+          {t[error]}
         </div>
       ) : null}
 
@@ -255,7 +273,7 @@ export function Downloader() {
               <img src={info.thumbnail} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full items-center justify-center bg-white/5 text-white/40">
-                Нет превью
+                {t.noPreview}
               </div>
             )}
             {info.durationLabel ? (
@@ -277,12 +295,13 @@ export function Downloader() {
             </div>
 
             <fieldset className="space-y-2">
-              <legend className="text-sm text-white/60">Качество</legend>
+              <legend className="text-sm text-white/60">{t.quality}</legend>
               <div className="flex flex-wrap gap-2">
                 {info.qualities.map((option) => (
                   <QualityChip
                     key={option.id}
                     option={option}
+                    label={qualityLabel(locale, option.id)}
                     selected={quality === option.id}
                     disabled={status === "downloading"}
                     onSelect={setQuality}
@@ -299,9 +318,9 @@ export function Downloader() {
             >
               {status === "downloading"
                 ? progress === null
-                  ? "Готовим файл…"
-                  : `Скачиваем ${progress}%`
-                : "Скачать"}
+                  ? t.preparing
+                  : interpolate(t.downloading, { progress })
+                : t.download}
             </button>
 
             {status === "downloading" ? (
@@ -321,11 +340,13 @@ export function Downloader() {
 
 function QualityChip({
   option,
+  label,
   selected,
   disabled,
   onSelect,
 }: {
   option: VideoFormatOption;
+  label: string;
   selected: boolean;
   disabled: boolean;
   onSelect: (id: string) => void;
@@ -337,7 +358,7 @@ function QualityChip({
       disabled={disabled}
       className={`quality-chip ${selected ? "quality-chip-selected" : ""}`}
     >
-      {option.label}
+      {label}
     </button>
   );
 }

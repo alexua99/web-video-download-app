@@ -14,14 +14,15 @@ const sans = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Клип — скачать видео",
-  description: "Скачивайте видео с YouTube, TikTok и Instagram в пару кликов.",
+  title: "Clip — download videos | Кліп — завантажити відео",
+  description:
+    "Download videos from YouTube, TikTok, and Instagram. Завантажуйте відео з YouTube, TikTok і Instagram.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="ru"
+      lang="uk"
       className={`${display.variable} ${sans.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>

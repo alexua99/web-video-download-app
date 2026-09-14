@@ -2,10 +2,13 @@ import { spawn } from "node:child_process";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import ffmpegPath from "ffmpeg-static";
+import { YtDlpError } from "@/lib/errors";
+import type { ErrorCode } from "@/lib/i18n";
+
+export { YtDlpError };
 
 export type VideoFormatOption = {
   id: string;
-  label: string;
   format: string;
   kind: "video" | "audio";
 };
@@ -63,43 +66,36 @@ const YTDLP_PATH = path.join(
 const INFO_TIMEOUT_MS = 90_000;
 const DOWNLOAD_TIMEOUT_MS = 12 * 60_000;
 
-export class YtDlpError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "YtDlpError";
-  }
-}
-
-function friendlyError(stderr: string, fallback: string): string {
+function friendlyError(stderr: string, fallback: ErrorCode): ErrorCode {
   const text = stderr.toLowerCase();
 
   if (text.includes("sign in") || text.includes("login required")) {
-    return "Нужна авторизация. Положите cookies.txt в корень проекта и попробуйте снова.";
+    return "login_required";
   }
   if (text.includes("private") || text.includes("this video is private")) {
-    return "Это приватное видео — скачать его нельзя.";
+    return "private_video";
   }
   if (text.includes("age") && text.includes("restrict")) {
-    return "Видео с возрастным ограничением. Нужен cookies.txt из аккаунта, который его открывает.";
+    return "age_restricted";
   }
   if (
     text.includes("unavailable") ||
     text.includes("not available") ||
     text.includes("removed")
   ) {
-    return "Видео недоступно или было удалено.";
+    return "unavailable";
   }
   if (text.includes("unsupported url") || text.includes("no video formats")) {
-    return "По этой ссылке не удалось найти видео. Проверьте, что это пост с роликом, а не фото или сторис.";
+    return "no_video";
   }
   if (text.includes("http error 403") || text.includes("403")) {
-    return "Площадка отклонила запрос. Попробуйте другую ссылку или добавьте cookies.txt.";
+    return "forbidden";
   }
   if (text.includes("http error 429") || text.includes("too many requests")) {
-    return "Слишком много запросов. Подождите минуту и попробуйте снова.";
+    return "rate_limited";
   }
   if (text.includes("timed out") || text.includes("timeout")) {
-    return "Площадка не ответила вовремя. Попробуйте ещё раз.";
+    return "timeout";
   }
 
   return fallback;
@@ -177,16 +173,14 @@ function runYtDlp(
 
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
-      reject(new YtDlpError("Превышено время ожидания. Попробуйте ещё раз."));
+      reject(new YtDlpError("timeout"));
     }, timeoutMs);
 
     child.on("error", (error) => {
       clearTimeout(timer);
       reject(
         new YtDlpError(
-          error.message.includes("ENOENT")
-            ? "Не найден yt-dlp. Переустановите зависимости: npm install"
-            : "Не удалось запустить загрузчик.",
+          error.message.includes("ENOENT") ? "ytdlp_missing" : "downloader_failed",
         ),
       );
     });
@@ -198,14 +192,7 @@ function runYtDlp(
         return;
       }
 
-      reject(
-        new YtDlpError(
-          friendlyError(
-            stderr || stdout,
-            "Не получилось обработать это видео. Проверьте ссылку и попробуйте снова.",
-          ),
-        ),
-      );
+      reject(new YtDlpError(friendlyError(stderr || stdout, "process_failed")));
     });
   });
 }
@@ -240,7 +227,6 @@ function buildQualities(info: RawInfo): VideoFormatOption[] {
   const options: VideoFormatOption[] = [
     {
       id: "best",
-      label: "Лучшее качество",
       format: "bv*+ba/b",
       kind: "video",
     },
@@ -253,7 +239,6 @@ function buildQualities(info: RawInfo): VideoFormatOption[] {
   for (const height of sortedHeights) {
     options.push({
       id: `${height}p`,
-      label: `${height}p`,
       format: `bv*[height<=${height}]+ba/b[height<=${height}]/b`,
       kind: "video",
     });
@@ -261,7 +246,6 @@ function buildQualities(info: RawInfo): VideoFormatOption[] {
 
   options.push({
     id: "audio",
-    label: "Только аудио (MP3)",
     format: "ba/b",
     kind: "audio",
   });
@@ -273,9 +257,7 @@ function unwrapInfo(raw: RawInfo): RawInfo {
   if (raw._type === "playlist") {
     const first = raw.entries?.find((entry) => entry && entry.id);
     if (!first) {
-      throw new YtDlpError(
-        "Это плейлист или профиль. Вставьте ссылку на одно конкретное видео.",
-      );
+      throw new YtDlpError("playlist");
     }
     return first;
   }
@@ -303,7 +285,7 @@ export function resolveFormat(quality: string): {
     };
   }
 
-  throw new YtDlpError("Неизвестный вариант качества.");
+  throw new YtDlpError("unknown_quality");
 }
 
 export async function getVideoInfo(url: string): Promise<VideoInfo> {
@@ -316,13 +298,13 @@ export async function getVideoInfo(url: string): Promise<VideoInfo> {
   try {
     parsed = JSON.parse(stdout) as RawInfo;
   } catch {
-    throw new YtDlpError("Не удалось прочитать информацию о видео.");
+    throw new YtDlpError("parse_failed");
   }
 
   const info = unwrapInfo(parsed);
 
   if (info.is_live || info.live_status === "is_live") {
-    throw new YtDlpError("Прямые трансляции скачать нельзя. Дождитесь записи.");
+    throw new YtDlpError("live_stream");
   }
 
   const title = (info.fulltitle || info.title || "video").trim();
