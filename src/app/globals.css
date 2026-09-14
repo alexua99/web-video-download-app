@@ -63,15 +63,29 @@ body {
 .brand-logo {
   display: inline-flex;
   align-items: center;
+  gap: 0.7rem;
   color: inherit;
   text-decoration: none;
 }
 
-.brand-logo svg {
+.brand-mark {
   display: block;
+  width: 2.55rem;
   height: 2.55rem;
-  width: auto;
+  flex-shrink: 0;
   filter: drop-shadow(0 12px 24px rgba(225, 29, 72, 0.38));
+}
+
+.brand-wordmark {
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  background: linear-gradient(180deg, #ffffff 20%, #fbcfe8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .lang-switch {

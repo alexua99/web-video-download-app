@@ -23,3 +23,15 @@ export class YtDlpError extends AppError {
     this.name = "YtDlpError";
   }
 }
+
+export class LimitError extends AppError {
+  status: number;
+  retryAfter?: number;
+
+  constructor(code: ErrorCode, status: number, retryAfter?: number) {
+    super(code);
+    this.name = "LimitError";
+    this.status = status;
+    this.retryAfter = retryAfter;
+  }
+}

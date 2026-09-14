@@ -5,8 +5,13 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { detectPlatform, extractUrl } from "@/lib/platforms";
 import { downloadVideo, safeFilename, YtDlpError } from "@/lib/ytdlp";
-import { jsonError, localeFromBody } from "@/lib/api";
+import { jsonError, localeFromBody, localeFromRequest } from "@/lib/api";
 import type { Locale } from "@/lib/i18n";
+import {
+  enforceRateLimit,
+  readJsonBody,
+  withJobSlot,
+} from "@/lib/protect";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,14 +66,15 @@ async function findDownloadedFile(directory: string): Promise<string> {
 
 export async function POST(request: Request) {
   let tempDir: string | null = null;
-  let locale: Locale = "en";
+  let locale: Locale = localeFromRequest(request, "en");
 
   try {
-    const body = (await request.json()) as {
+    enforceRateLimit(request, "download");
+    const body = await readJsonBody<{
       url?: string;
       quality?: string;
       locale?: unknown;
-    };
+    }>(request);
     locale = localeFromBody(body);
     const url = extractUrl(body.url ?? "");
     detectPlatform(url);
@@ -77,7 +83,9 @@ export async function POST(request: Request) {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "clip-download-"));
     const outputTemplate = path.join(tempDir, "%(title).180B.%(ext)s");
 
-    await downloadVideo({ url, quality, outputTemplate });
+    await withJobSlot("download", () =>
+      downloadVideo({ url, quality, outputTemplate }),
+    );
 
     const filePath = await findDownloadedFile(tempDir);
     const extension = path.extname(filePath).toLowerCase();

@@ -83,7 +83,10 @@ export function Downloader() {
     try {
       const response = await fetch("/api/info", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Accept-Language": locale,
+        },
         body: JSON.stringify({ url, locale }),
       });
 
@@ -110,7 +113,10 @@ export function Downloader() {
     try {
       const response = await fetch("/api/download", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Accept-Language": locale,
+        },
         body: JSON.stringify({
           url: info.webpageUrl || url,
           quality,
