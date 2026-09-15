@@ -3,13 +3,64 @@ import { AppError, LimitError, UrlError, YtDlpError } from "@/lib/errors";
 import type { ErrorCode, Locale } from "@/lib/i18n";
 import { parseLocale, translate } from "@/lib/i18n";
 
+const DEFAULT_CORS_ORIGINS = [
+  "https://alex-video-download.netlify.app",
+  "http://localhost:3000",
+];
+
+function allowedOrigins() {
+  const extra = (process.env.CORS_ORIGINS || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  return [...DEFAULT_CORS_ORIGINS, ...extra];
+}
+
+export function allowedOrigin(request?: Request) {
+  if (!request) return null;
+  const origin = request.headers.get("origin");
+  if (!origin) return null;
+  if (allowedOrigins().includes(origin)) return origin;
+  try {
+    const host = new URL(origin).hostname;
+    if (host.endsWith(".netlify.app") || host.endsWith(".up.railway.app")) {
+      return origin;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export function corsHeaders(request?: Request): HeadersInit {
+  const origin = allowedOrigin(request);
+  if (!origin) return {};
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Accept-Language",
+    "Access-Control-Expose-Headers": "Content-Disposition, X-Filename",
+    Vary: "Origin",
+  };
+}
+
+export function corsPreflight(request: Request) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders(request),
+  });
+}
+
 export function jsonError(
   error: unknown,
   locale: Locale,
   fallback: ErrorCode,
+  request?: Request,
 ) {
   if (error instanceof LimitError) {
-    const headers: HeadersInit = {};
+    const headers: HeadersInit = {
+      ...corsHeaders(request),
+    };
     if (error.retryAfter) {
       headers["Retry-After"] = String(error.retryAfter);
     }
@@ -23,20 +74,20 @@ export function jsonError(
   if (error instanceof UrlError || error instanceof YtDlpError) {
     return NextResponse.json(
       { error: translate(locale, error.code), code: error.code },
-      { status: error instanceof UrlError ? 400 : 422 },
+      { status: error instanceof UrlError ? 400 : 422, headers: corsHeaders(request) },
     );
   }
 
   if (error instanceof AppError) {
     return NextResponse.json(
       { error: translate(locale, error.code), code: error.code },
-      { status: 500 },
+      { status: 500, headers: corsHeaders(request) },
     );
   }
 
   return NextResponse.json(
     { error: translate(locale, fallback), code: fallback },
-    { status: 500 },
+    { status: 500, headers: corsHeaders(request) },
   );
 }
 

@@ -3,6 +3,9 @@ import { locales, type Locale } from "@/lib/i18n";
 export function getSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
   if (explicit) return explicit;
+  if (process.env.NETLIFY && process.env.URL) {
+    return process.env.URL.replace(/\/$/, "");
+  }
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "http://localhost:3000";
 }

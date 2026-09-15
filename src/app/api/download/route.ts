@@ -5,7 +5,8 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { detectPlatform, extractUrl } from "@/lib/platforms";
 import { downloadVideo, safeFilename, YtDlpError } from "@/lib/ytdlp";
-import { jsonError, localeFromBody, localeFromRequest } from "@/lib/api";
+import { corsHeaders, jsonError, localeFromBody, localeFromRequest } from "@/lib/api";
+import { assertDownloadHost } from "@/lib/hosting";
 import type { Locale } from "@/lib/i18n";
 import {
   enforceRateLimit,
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
       locale?: unknown;
     }>(request);
     locale = localeFromBody(body);
+    assertDownloadHost();
     const url = extractUrl(body.url ?? "");
     detectPlatform(url);
     const quality = body.quality?.trim() || "best";
@@ -118,6 +120,7 @@ export async function POST(request: Request) {
         "Content-Disposition": contentDisposition(filename),
         "Cache-Control": "no-store",
         "X-Filename": encodeURIComponent(filename),
+        ...corsHeaders(request),
       },
     });
   } catch (error) {
@@ -125,6 +128,6 @@ export async function POST(request: Request) {
       await rm(tempDir, { recursive: true, force: true });
     }
 
-    return jsonError(error, locale, "download_failed");
+    return jsonError(error, locale, "download_failed", request);
   }
 }

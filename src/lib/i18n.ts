@@ -64,6 +64,10 @@ export const messages = {
     clipboard: "No clipboard access. Paste the link manually.",
     too_busy: "The server is busy. Wait a few seconds and try again.",
     payload_too_large: "The request is too large.",
+    hosting_unsupported:
+      "This app cannot download videos on Netlify. It needs a long-running Node server (Railway, Render, or a VPS), not serverless functions.",
+    hosting_notice:
+      "The site is on Netlify, so search and download will not work here. Run it on a regular Node host or locally with npm run dev.",
   },
   uk: {
     brand: "Кліп",
@@ -128,6 +132,10 @@ export const messages = {
     clipboard: "Немає доступу до буфера обміну. Вставте посилання вручну.",
     too_busy: "Сервер зараз зайнятий. Зачекайте кілька секунд і спробуйте знову.",
     payload_too_large: "Запит занадто великий.",
+    hosting_unsupported:
+      "На Netlify відео завантажити не можна. Потрібен звичайний Node-сервер (Railway, Render або VPS), а не serverless-функції.",
+    hosting_notice:
+      "Сайт стоїть на Netlify, тому пошук і скачування тут не працюють. Запустіть застосунок на звичайному Node-хостингу або локально через npm run dev.",
   },
 } as const;
 
@@ -164,6 +172,7 @@ export type ErrorCode = Extract<
   | "clipboard"
   | "too_busy"
   | "payload_too_large"
+  | "hosting_unsupported"
 >;
 
 const ERROR_CODES = new Set<string>([
@@ -195,6 +204,7 @@ const ERROR_CODES = new Set<string>([
   "clipboard",
   "too_busy",
   "payload_too_large",
+  "hosting_unsupported",
 ]);
 
 export function parseLocale(value: unknown): Locale {

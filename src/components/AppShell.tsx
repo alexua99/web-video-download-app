@@ -36,6 +36,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         </div>
 
         <Downloader />
+        {process.env.NEXT_PUBLIC_HOSTING === "netlify" &&
+        !process.env.NEXT_PUBLIC_API_BASE ? (
+          <div className="error-banner mt-6 w-full max-w-2xl" role="status">
+            {t.hosting_notice}
+          </div>
+        ) : null}
         {children}
       </main>
 

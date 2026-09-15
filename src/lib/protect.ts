@@ -83,7 +83,8 @@ function getRecord(key: string, ts: number): ClientRecord {
 }
 
 export function getClientKey(request: Request): string {
-  const trustProxy = process.env.TRUST_PROXY === "1";
+  const trustProxy =
+    process.env.TRUST_PROXY === "1" || Boolean(process.env.RAILWAY_ENVIRONMENT);
   const forwarded = request.headers.get("x-forwarded-for");
   const realIp = request.headers.get("x-real-ip")?.trim();
   const cfIp = request.headers.get("cf-connecting-ip")?.trim();

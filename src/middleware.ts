@@ -16,6 +16,20 @@ function withLocaleHeader(request: NextRequest) {
 
 export function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/")) {
+    if (request.method === "OPTIONS") {
+      const origin = request.headers.get("origin") ?? "*";
+      return new NextResponse(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": origin,
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Accept-Language",
+          "Access-Control-Max-Age": "86400",
+          Vary: "Origin",
+        },
+      });
+    }
+
     if (request.method !== "POST") {
       return NextResponse.json(
         { error: "Method not allowed", code: "generic" },

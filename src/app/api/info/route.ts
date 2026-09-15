@@ -1,6 +1,7 @@
 import { detectPlatform, extractUrl } from "@/lib/platforms";
 import { getVideoInfo } from "@/lib/ytdlp";
-import { jsonError, localeFromBody, localeFromRequest } from "@/lib/api";
+import { corsHeaders, jsonError, localeFromBody, localeFromRequest } from "@/lib/api";
+import { assertDownloadHost } from "@/lib/hosting";
 import {
   enforceRateLimit,
   readJsonBody,
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
     enforceRateLimit(request, "info");
     const body = await readJsonBody<{ url?: string; locale?: unknown }>(request);
     locale = localeFromBody(body);
+    assertDownloadHost();
 
     const info = await withJobSlot("info", async () => {
       const url = extractUrl(body.url ?? "");
@@ -26,8 +28,8 @@ export async function POST(request: Request) {
       return { platform, ...data };
     });
 
-    return Response.json(info);
+    return Response.json(info, { headers: corsHeaders(request) });
   } catch (error) {
-    return jsonError(error, locale, "info_failed");
+    return jsonError(error, locale, "info_failed", request);
   }
 }

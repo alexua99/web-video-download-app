@@ -8,6 +8,7 @@ import {
   qualityLabel,
   type ErrorCode,
 } from "@/lib/i18n";
+import { apiUrl } from "@/lib/api-base";
 import type { Platform } from "@/lib/platforms";
 import type { VideoFormatOption, VideoInfo } from "@/lib/ytdlp";
 
@@ -81,7 +82,7 @@ export function Downloader() {
     setProgress(null);
 
     try {
-      const response = await fetch("/api/info", {
+      const response = await fetch(apiUrl("/api/info"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -111,7 +112,7 @@ export function Downloader() {
     setProgress(null);
 
     try {
-      const response = await fetch("/api/download", {
+      const response = await fetch(apiUrl("/api/download"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

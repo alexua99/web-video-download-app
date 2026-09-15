@@ -1,0 +1,6 @@
+[build]
+  command = "npm run build"
+
+[build.environment]
+  NEXT_PUBLIC_SITE_URL = "https://alex-video-download.netlify.app"
+  NEXT_PUBLIC_HOSTING = "netlify"
