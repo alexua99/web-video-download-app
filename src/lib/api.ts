@@ -32,7 +32,7 @@ export function allowedOrigin(request?: Request) {
   return null;
 }
 
-export function corsHeaders(request?: Request): HeadersInit {
+export function corsHeaders(request?: Request): Record<string, string> {
   const origin = allowedOrigin(request);
   if (!origin) return {};
   return {
@@ -58,7 +58,7 @@ export function jsonError(
   request?: Request,
 ) {
   if (error instanceof LimitError) {
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       ...corsHeaders(request),
     };
     if (error.retryAfter) {
