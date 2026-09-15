@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import {
   interpolate,
@@ -29,14 +29,27 @@ function platformFromUrl(value: string): Platform | null {
   return null;
 }
 
-async function readErrorCode(response: Response): Promise<ErrorCode> {
+async function readApiError(
+  response: Response,
+): Promise<{ code: ErrorCode; retryAfter: number }> {
+  let code: ErrorCode = "generic";
   try {
     const data = (await response.json()) as { code?: string };
-    if (data.code && isErrorCode(data.code)) return data.code;
+    if (data.code && isErrorCode(data.code)) code = data.code;
   } catch {
     // not json
   }
-  return "generic";
+
+  const retryHeader = response.headers.get("Retry-After");
+  let retryAfter = Number(retryHeader);
+  if (retryHeader && !Number.isFinite(retryAfter)) {
+    retryAfter = Math.ceil((Date.parse(retryHeader) - Date.now()) / 1000);
+  }
+  if (!Number.isFinite(retryAfter) || retryAfter <= 0) {
+    retryAfter = response.status === 429 ? 60 : 0;
+  }
+
+  return { code, retryAfter: Math.ceil(retryAfter) };
 }
 
 function filenameFromHeaders(response: Response): string {
@@ -66,6 +79,8 @@ export function Downloader() {
   const [info, setInfo] = useState<InfoResponse | null>(null);
   const [quality, setQuality] = useState("best");
   const [progress, setProgress] = useState<number | null>(null);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   const guessedPlatform = useMemo(() => platformFromUrl(url.trim()), [url]);
   const platforms = [
@@ -74,8 +89,37 @@ export function Downloader() {
     { id: "instagram" as const, name: "Instagram", hint: t.instagramHint },
   ];
 
+  useEffect(() => {
+    if (!cooldownUntil) return;
+
+    const updateCountdown = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((cooldownUntil - Date.now()) / 1000),
+      );
+      setCooldownSeconds(remaining);
+      if (remaining === 0) {
+        setCooldownUntil(null);
+        setError((current) =>
+          current === "rate_limited" || current === "too_busy" ? null : current,
+        );
+      }
+    };
+
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldownUntil]);
+
+  function startCooldown(seconds: number) {
+    if (seconds <= 0) return;
+    setCooldownSeconds(seconds);
+    setCooldownUntil(Date.now() + seconds * 1000);
+  }
+
   async function fetchInfo(event: React.FormEvent) {
     event.preventDefault();
+    if (cooldownSeconds > 0) return;
     setError(null);
     setInfo(null);
     setStatus("loading-info");
@@ -92,7 +136,9 @@ export function Downloader() {
       });
 
       if (!response.ok) {
-        throw await readErrorCode(response);
+        const failure = await readApiError(response);
+        startCooldown(failure.retryAfter);
+        throw failure.code;
       }
 
       const data = (await response.json()) as InfoResponse;
@@ -106,7 +152,7 @@ export function Downloader() {
   }
 
   async function download() {
-    if (!info) return;
+    if (!info || cooldownSeconds > 0) return;
     setError(null);
     setStatus("downloading");
     setProgress(null);
@@ -126,7 +172,9 @@ export function Downloader() {
       });
 
       if (!response.ok) {
-        throw await readErrorCode(response);
+        const failure = await readApiError(response);
+        startCooldown(failure.retryAfter);
+        throw failure.code;
       }
 
       const filename = filenameFromHeaders(response);
@@ -228,10 +276,15 @@ export function Downloader() {
               disabled={
                 !url.trim() ||
                 status === "loading-info" ||
-                status === "downloading"
+                status === "downloading" ||
+                cooldownSeconds > 0
               }
             >
-              {status === "loading-info" ? t.searching : t.find}
+              {status === "loading-info"
+                ? t.searching
+                : cooldownSeconds > 0
+                  ? interpolate(t.waitSeconds, { seconds: cooldownSeconds })
+                  : t.find}
             </button>
           </div>
         </div>
@@ -270,8 +323,13 @@ export function Downloader() {
       </div>
 
       {error ? (
-        <div className="error-banner" role="alert">
+        <div className="error-banner" role="alert" aria-live="polite">
           {t[error]}
+          {cooldownSeconds > 0 ? (
+            <span className="ml-1 font-semibold text-white">
+              {interpolate(t.retryCountdown, { seconds: cooldownSeconds })}
+            </span>
+          ) : null}
         </div>
       ) : null}
 
@@ -325,14 +383,16 @@ export function Downloader() {
             <button
               type="button"
               onClick={download}
-              disabled={status === "downloading"}
+              disabled={status === "downloading" || cooldownSeconds > 0}
               className="primary-button download-button"
             >
               {status === "downloading"
                 ? progress === null
                   ? t.preparing
                   : interpolate(t.downloading, { progress })
-                : t.download}
+                : cooldownSeconds > 0
+                  ? interpolate(t.waitSeconds, { seconds: cooldownSeconds })
+                  : t.download}
             </button>
 
             {status === "downloading" ? (
