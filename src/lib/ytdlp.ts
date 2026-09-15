@@ -434,8 +434,6 @@ export function transcodeForApple(
         "22",
         "-profile:v",
         "main",
-        "-level",
-        "4.1",
         "-pix_fmt",
         "yuv420p",
         "-vf",
@@ -473,6 +471,7 @@ export function transcodeForApple(
         resolve();
         return;
       }
+      console.error("ffmpeg compatibility transcode failed:", stderr.slice(-4000));
       reject(
         new YtDlpError(friendlyError(stderr, "downloader_failed")),
       );
