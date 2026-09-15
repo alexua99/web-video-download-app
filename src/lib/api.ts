@@ -72,6 +72,19 @@ export function jsonError(
     );
   }
 
+  if (error instanceof YtDlpError && error.code === "rate_limited") {
+    return NextResponse.json(
+      { error: translate(locale, error.code), code: error.code },
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders(request),
+          "Retry-After": "60",
+        },
+      },
+    );
+  }
+
   if (error instanceof UrlError || error instanceof YtDlpError) {
     return NextResponse.json(
       { error: translate(locale, error.code), code: error.code },
