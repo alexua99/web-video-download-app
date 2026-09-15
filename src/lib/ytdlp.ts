@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { access } from "node:fs/promises";
+import { access, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import ffmpegPath from "ffmpeg-static";
 import { YtDlpError } from "@/lib/errors";
@@ -66,6 +67,7 @@ const YTDLP_PATH = path.join(
 const INFO_TIMEOUT_MS = 90_000;
 const DOWNLOAD_TIMEOUT_MS = 12 * 60_000;
 const TRANSCODE_TIMEOUT_MS = 15 * 60_000;
+let environmentCookiesPath: Promise<string | null> | null = null;
 
 function friendlyError(stderr: string, fallback: ErrorCode): ErrorCode {
   const text = stderr.toLowerCase();
@@ -102,9 +104,40 @@ function friendlyError(stderr: string, fallback: ErrorCode): ErrorCode {
   return fallback;
 }
 
+function cookiesFromEnvironment(): Promise<string | null> {
+  if (environmentCookiesPath) return environmentCookiesPath;
+
+  environmentCookiesPath = (async () => {
+    const encoded = process.env.YTDLP_COOKIES_BASE64?.trim();
+    if (!encoded) return null;
+
+    const contents = Buffer.from(encoded, "base64").toString("utf8");
+    const hasCookieRow = contents
+      .split(/\r?\n/)
+      .some(
+        (line) =>
+          line &&
+          (!line.startsWith("#") || line.startsWith("#HttpOnly_")) &&
+          line.split("\t").length >= 7,
+      );
+
+    if (!hasCookieRow) {
+      throw new YtDlpError("login_required");
+    }
+
+    const file = path.join(os.tmpdir(), "ytdlp-cookies.txt");
+    await writeFile(file, contents, { encoding: "utf8", mode: 0o600 });
+    return file;
+  })();
+
+  return environmentCookiesPath;
+}
+
 async function cookiesArgs(): Promise<string[]> {
+  const environmentFile = await cookiesFromEnvironment();
   const envFile = process.env.COOKIES_FILE;
   const candidates = [
+    environmentFile,
     envFile,
     path.join(process.cwd(), "cookies.txt"),
     path.join(process.cwd(), "cookies", "cookies.txt"),
