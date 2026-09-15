@@ -25,6 +25,8 @@ export const messages = {
     download: "Download",
     preparing: "Preparing file…",
     downloading: "Downloading {progress}%",
+    waitSeconds: "Wait {seconds}s",
+    retryCountdown: "Try again in {seconds}s.",
     footer:
       "Only download content you have the rights to. Instagram sometimes needs a cookies.txt file in the project root.",
     metaTitle: "Download YouTube, TikTok & Instagram Videos | Clip",
@@ -92,6 +94,8 @@ export const messages = {
     download: "Завантажити",
     preparing: "Готуємо файл…",
     downloading: "Завантажуємо {progress}%",
+    waitSeconds: "Зачекайте {seconds}с",
+    retryCountdown: "Повторіть через {seconds}с.",
     footer:
       "Завантажуйте лише те, на що маєте права. Instagram іноді потребує файл cookies.txt у корені проєкту.",
     metaTitle: "Завантажити відео з YouTube, TikTok і Instagram | Кліп",
