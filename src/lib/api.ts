@@ -39,7 +39,8 @@ export function corsHeaders(request?: Request): Record<string, string> {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Accept-Language",
-    "Access-Control-Expose-Headers": "Content-Disposition, X-Filename",
+    "Access-Control-Expose-Headers":
+      "Content-Disposition, X-Filename, Retry-After",
     Vary: "Origin",
   };
 }
@@ -68,6 +69,19 @@ export function jsonError(
     return NextResponse.json(
       { error: translate(locale, error.code), code: error.code },
       { status: error.status, headers },
+    );
+  }
+
+  if (error instanceof YtDlpError && error.code === "rate_limited") {
+    return NextResponse.json(
+      { error: translate(locale, error.code), code: error.code },
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders(request),
+          "Retry-After": "60",
+        },
+      },
     );
   }
 
