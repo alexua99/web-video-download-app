@@ -227,7 +227,7 @@ function buildQualities(info: RawInfo): VideoFormatOption[] {
   const options: VideoFormatOption[] = [
     {
       id: "best",
-      format: "bv*+ba/b",
+      format: telegramSafeFormat(),
       kind: "video",
     },
   ];
@@ -239,7 +239,7 @@ function buildQualities(info: RawInfo): VideoFormatOption[] {
   for (const height of sortedHeights) {
     options.push({
       id: `${height}p`,
-      format: `bv*[height<=${height}]+ba/b[height<=${height}]/b`,
+      format: telegramSafeFormat(height),
       kind: "video",
     });
   }
@@ -264,6 +264,18 @@ function unwrapInfo(raw: RawInfo): RawInfo {
   return raw;
 }
 
+function telegramSafeFormat(maxHeight?: number) {
+  const height = maxHeight ? `[height<=${maxHeight}]` : "";
+  return [
+    `bv${height}[vcodec^=avc1]+ba[acodec^=mp4a]`,
+    `bv${height}[vcodec^=avc]+ba[acodec^=mp4a]`,
+    `bv${height}[vcodec^=avc1]+ba`,
+    `bv${height}+ba[ext=m4a]`,
+    `b${height}[ext=mp4]`,
+    `bv${height}+ba/b`,
+  ].join("/");
+}
+
 export function resolveFormat(quality: string): {
   format: string;
   extractAudio: boolean;
@@ -273,14 +285,13 @@ export function resolveFormat(quality: string): {
   }
 
   if (quality === "best") {
-    return { format: "bv*+ba/b", extractAudio: false };
+    return { format: telegramSafeFormat(), extractAudio: false };
   }
 
   const match = quality.match(/^(\d+)p$/);
   if (match) {
-    const height = match[1];
     return {
-      format: `bv*[height<=${height}]+ba/b[height<=${height}]/b`,
+      format: telegramSafeFormat(Number(match[1])),
       extractAudio: false,
     };
   }
@@ -337,6 +348,8 @@ export async function downloadVideo(options: {
     "2G",
     "-f",
     format,
+    "-S",
+    "vcodec:h264,acodec:mp4a,ext:mp4",
     "-o",
     options.outputTemplate,
   ];
@@ -344,7 +357,15 @@ export async function downloadVideo(options: {
   if (extractAudio) {
     args.push("-x", "--audio-format", "mp3", "--audio-quality", "0");
   } else {
-    args.push("--merge-output-format", "mp4");
+    args.push(
+      "--merge-output-format",
+      "mp4",
+      "--remux-video",
+      "mp4",
+      "--add-metadata",
+      "--postprocessor-args",
+      "ffmpeg:-c:v copy -c:a aac -movflags +faststart",
+    );
   }
 
   args.push("--", options.url);

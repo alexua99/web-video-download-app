@@ -153,11 +153,16 @@ export function Downloader() {
         }
       }
 
+      const mime =
+        response.headers.get("Content-Type") ||
+        (filename.endsWith(".mp4")
+          ? "video/mp4"
+          : filename.endsWith(".mp3")
+            ? "audio/mpeg"
+            : "application/octet-stream");
       const blob = new Blob(
         chunks.map((chunk) => chunk.slice()),
-        {
-          type: response.headers.get("Content-Type") || "application/octet-stream",
-        },
+        { type: mime.split(";")[0].trim() || "video/mp4" },
       );
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
