@@ -65,6 +65,7 @@ const YTDLP_PATH = path.join(
 
 const INFO_TIMEOUT_MS = 90_000;
 const DOWNLOAD_TIMEOUT_MS = 12 * 60_000;
+const TRANSCODE_TIMEOUT_MS = 15 * 60_000;
 
 function friendlyError(stderr: string, fallback: ErrorCode): ErrorCode {
   const text = stderr.toLowerCase();
@@ -370,6 +371,80 @@ export async function downloadVideo(options: {
 
   args.push("--", options.url);
   await runYtDlp(args, DOWNLOAD_TIMEOUT_MS);
+}
+
+export function transcodeForApple(
+  inputPath: string,
+  outputPath: string,
+): Promise<void> {
+  if (!ffmpegPath) {
+    throw new YtDlpError("downloader_failed");
+  }
+  const executable = ffmpegPath;
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      executable,
+      [
+        "-y",
+        "-i",
+        inputPath,
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0?",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "22",
+        "-profile:v",
+        "main",
+        "-level",
+        "4.1",
+        "-pix_fmt",
+        "yuv420p",
+        "-vf",
+        "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        "-movflags",
+        "+faststart",
+        outputPath,
+      ],
+      { stdio: ["ignore", "ignore", "pipe"] },
+    );
+
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new YtDlpError("timeout"));
+    }, TRANSCODE_TIMEOUT_MS);
+
+    child.on("error", () => {
+      clearTimeout(timer);
+      reject(new YtDlpError("downloader_failed"));
+    });
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(
+        new YtDlpError(friendlyError(stderr, "downloader_failed")),
+      );
+    });
+  });
 }
 
 export function safeFilename(title: string, extension: string): string {
