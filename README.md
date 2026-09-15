@@ -18,6 +18,20 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Railway cookies
+
+YouTube and other platforms can require an authenticated browser session when
+requests come from a hosting provider. Export cookies in Netscape `cookies.txt`
+format, encode the file, and save the result as the private Railway variable
+`YTDLP_COOKIES_BASE64`:
+
+```bash
+base64 < cookies.txt | tr -d '\n'
+```
+
+Never commit `cookies.txt` or its encoded value. Use a dedicated account and
+replace the Railway variable whenever the session expires.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
