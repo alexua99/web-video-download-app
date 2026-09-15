@@ -4,7 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { detectPlatform, extractUrl } from "@/lib/platforms";
-import { downloadVideo, safeFilename, YtDlpError } from "@/lib/ytdlp";
+import {
+  downloadVideo,
+  safeFilename,
+  transcodeForApple,
+  YtDlpError,
+} from "@/lib/ytdlp";
 import { corsHeaders, jsonError, localeFromBody, localeFromRequest } from "@/lib/api";
 import { assertDownloadHost } from "@/lib/hosting";
 import type { Locale } from "@/lib/i18n";
@@ -89,11 +94,21 @@ export async function POST(request: Request) {
       downloadVideo({ url, quality, outputTemplate }),
     );
 
-    const filePath = await findDownloadedFile(tempDir);
+    const downloadedPath = await findDownloadedFile(tempDir);
+    const downloadedExtension = path.extname(downloadedPath).toLowerCase();
+    const title = path.basename(downloadedPath, downloadedExtension);
+    let filePath = downloadedPath;
+
+    if (quality !== "audio") {
+      const compatiblePath = path.join(tempDir, "apple-compatible.mp4");
+      await transcodeForApple(downloadedPath, compatiblePath);
+      filePath = compatiblePath;
+    }
+
     const extension = path.extname(filePath).toLowerCase();
     const fileStat = await stat(filePath);
     const filename = safeFilename(
-      path.basename(filePath, extension),
+      title,
       extension.replace(".", "") || (quality === "audio" ? "mp3" : "mp4"),
     );
 
