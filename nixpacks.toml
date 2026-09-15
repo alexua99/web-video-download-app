@@ -1,0 +1,6 @@
+[phases.setup]
+nixPkgs = ["...", "python3", "ffmpeg"]
+
+[variables]
+NIXPACKS_NODE_VERSION = "20"
+YOUTUBE_DL_SKIP_PYTHON_CHECK = "1"
