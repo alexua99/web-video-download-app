@@ -46,7 +46,12 @@ async function readApiError(
     retryAfter = Math.ceil((Date.parse(retryHeader) - Date.now()) / 1000);
   }
   if (!Number.isFinite(retryAfter) || retryAfter <= 0) {
-    retryAfter = response.status === 429 ? 60 : 0;
+    retryAfter =
+      response.status === 429 || code === "rate_limited"
+        ? 60
+        : code === "too_busy"
+          ? 15
+          : 0;
   }
 
   return { code, retryAfter: Math.ceil(retryAfter) };
