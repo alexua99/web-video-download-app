@@ -4,3 +4,4 @@
 [build.environment]
   NEXT_PUBLIC_SITE_URL = "https://alex-video-download.netlify.app"
   NEXT_PUBLIC_HOSTING = "netlify"
+  NEXT_PUBLIC_API_BASE = "https://web-video-download-app-production.up.railway.app"
