@@ -111,12 +111,14 @@ export function Downloader() {
         const response = await fetch(apiUrl("/api/queue"), { cache: "no-store" });
         if (!response.ok) return;
         const data = (await response.json()) as {
-          info?: { waiting?: number };
-          download?: { waiting?: number };
+          info?: { active?: number; waiting?: number };
+          download?: { active?: number; waiting?: number };
         };
+        const active = Number(data[bucket]?.active ?? 0);
         const waitingCount = Number(data[bucket]?.waiting ?? 0);
+        const limit = bucket === "info" ? 2 : 2;
         if (!cancelled) {
-          setAhead(Math.max(0, waitingCount));
+          setAhead(active >= limit ? Math.max(0, waitingCount) : 0);
         }
       } catch {
         // queue status is optional
@@ -222,6 +224,7 @@ export function Downloader() {
     if (!info || cooldownSeconds > 0) return;
     setError(null);
     setPhoneFile(null);
+    setAhead(0);
     setStatus("downloading");
     setProgress(null);
 
