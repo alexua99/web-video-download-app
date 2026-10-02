@@ -87,6 +87,7 @@ export function Downloader() {
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [ahead, setAhead] = useState(0);
+  const [phoneFile, setPhoneFile] = useState<File | null>(null);
 
   const guessedPlatform = useMemo(() => platformFromUrl(url.trim()), [url]);
   const platforms = [
@@ -196,40 +197,33 @@ export function Downloader() {
     return /iPhone|iPad|iPod/i.test(navigator.userAgent);
   }
 
-  function downloadOnPhone() {
-    if (!info) return;
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = apiUrl("/api/download");
-    form.target = "_blank";
-    const fields: Record<string, string> = {
-      url: info.webpageUrl || url,
-      quality,
-      locale,
-    };
-    for (const [name, value] of Object.entries(fields)) {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = name;
-      input.value = value;
-      form.appendChild(input);
+  async function savePhoneFile() {
+    if (!phoneFile) return;
+    try {
+      if (navigator.canShare?.({ files: [phoneFile] })) {
+        await navigator.share({ files: [phoneFile], title: phoneFile.name });
+        return;
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
     }
-    document.body.appendChild(form);
-    form.submit();
-    form.remove();
-    setStatus("ready");
+
+    const objectUrl = URL.createObjectURL(phoneFile);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = phoneFile.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
   }
 
   async function download() {
     if (!info || cooldownSeconds > 0) return;
     setError(null);
+    setPhoneFile(null);
     setStatus("downloading");
     setProgress(null);
-
-    if (isAppleMobile()) {
-      downloadOnPhone();
-      return;
-    }
 
     try {
       const response = await fetch(apiUrl("/api/download"), {
@@ -282,10 +276,29 @@ export function Downloader() {
           : filename.endsWith(".mp3")
             ? "audio/mpeg"
             : "application/octet-stream");
+      const type = mime.split(";")[0].trim() || "video/mp4";
       const blob = new Blob(
         chunks.map((chunk) => chunk.slice()),
-        { type: mime.split(";")[0].trim() || "video/mp4" },
+        { type },
       );
+
+      if (isAppleMobile()) {
+        const file = new File([blob], filename, { type });
+        setPhoneFile(file);
+        setProgress(100);
+        setStatus("ready");
+        try {
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: filename });
+          }
+        } catch (err) {
+          if (!(err instanceof DOMException && err.name === "AbortError")) {
+            // The save button stays on the page for a second tap.
+          }
+        }
+        return;
+      }
+
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = objectUrl;
@@ -464,6 +477,16 @@ export function Downloader() {
                 ))}
               </div>
             </fieldset>
+
+            {phoneFile ? (
+              <button
+                type="button"
+                onClick={() => void savePhoneFile()}
+                className="primary-button download-button"
+              >
+                {t.saveToPhone}
+              </button>
+            ) : null}
 
             <button
               type="button"
