@@ -6,6 +6,7 @@ import { Readable } from "node:stream";
 import { detectPlatform, extractUrl } from "@/lib/platforms";
 import {
   downloadVideo,
+  getVideoInfo,
   safeFilename,
   transcodeForApple,
   YtDlpError,
@@ -16,6 +17,7 @@ import type { Locale } from "@/lib/i18n";
 import {
   enforceRateLimit,
   readJsonBody,
+  takeJobSlot,
   withJobSlot,
 } from "@/lib/protect";
 
@@ -70,68 +72,86 @@ async function findDownloadedFile(directory: string): Promise<string> {
   return ranked[0].fullPath;
 }
 
+async function readDownloadRequest(request: Request): Promise<{
+  url?: string;
+  quality?: string;
+  locale?: unknown;
+}> {
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  if (contentType.includes("application/x-www-form-urlencoded")) {
+    const params = new URLSearchParams(await request.text());
+    return {
+      url: params.get("url") ?? undefined,
+      quality: params.get("quality") ?? undefined,
+      locale: params.get("locale") ?? undefined,
+    };
+  }
+
+  return readJsonBody(request);
+}
+
 export async function POST(request: Request) {
-  let tempDir: string | null = null;
   let locale: Locale = localeFromRequest(request, "en");
+  let release: (() => void) | null = null;
 
   try {
     enforceRateLimit(request, "download");
-    const body = await readJsonBody<{
-      url?: string;
-      quality?: string;
-      locale?: unknown;
-    }>(request);
+    const body = await readDownloadRequest(request);
     locale = localeFromBody(body);
     assertDownloadHost();
     const url = extractUrl(body.url ?? "");
     detectPlatform(url);
     const quality = body.quality?.trim() || "best";
 
-    tempDir = await mkdtemp(path.join(os.tmpdir(), "clip-download-"));
-    const outputTemplate = path.join(tempDir, "%(title).180B.%(ext)s");
-
-    await withJobSlot("download", () =>
-      downloadVideo({ url, quality, outputTemplate }),
+    const info = await withJobSlot(
+      "info",
+      () => getVideoInfo(url),
+      request.signal,
     );
+    const extension = quality === "audio" ? "mp3" : "mp4";
+    const filename = safeFilename(info.title, extension);
+    release = await takeJobSlot("download", request.signal);
+    const finish = release;
+    release = null;
 
-    const downloadedPath = await findDownloadedFile(tempDir);
-    const downloadedExtension = path.extname(downloadedPath).toLowerCase();
-    const title = path.basename(downloadedPath, downloadedExtension);
-    let filePath = downloadedPath;
+    const stream = new ReadableStream({
+      async start(controller) {
+        let tempDir: string | null = null;
+        try {
+          tempDir = await mkdtemp(path.join(os.tmpdir(), "clip-download-"));
+          const outputTemplate = path.join(tempDir, "%(title).180B.%(ext)s");
+          await downloadVideo({ url, quality, outputTemplate });
+          const downloadedPath = await findDownloadedFile(tempDir);
+          let filePath = downloadedPath;
 
-    if (quality !== "audio") {
-      const compatiblePath = path.join(tempDir, "apple-compatible.mp4");
-      await transcodeForApple(downloadedPath, compatiblePath);
-      filePath = compatiblePath;
-    }
+          if (quality !== "audio") {
+            const compatiblePath = path.join(tempDir, "apple-compatible.mp4");
+            await transcodeForApple(downloadedPath, compatiblePath);
+            filePath = compatiblePath;
+          }
 
-    const extension = path.extname(filePath).toLowerCase();
-    const fileStat = await stat(filePath);
-    const filename = safeFilename(
-      title,
-      extension.replace(".", "") || (quality === "audio" ? "mp3" : "mp4"),
-    );
-
-    const nodeStream = createReadStream(filePath);
-    const cleanup = () => {
-      if (!tempDir) return;
-      const dir = tempDir;
-      tempDir = null;
-      void rm(dir, { recursive: true, force: true });
-    };
-
-    request.signal.addEventListener("abort", () => {
-      nodeStream.destroy();
-      cleanup();
+          const nodeStream = createReadStream(filePath);
+          for await (const chunk of nodeStream) {
+            controller.enqueue(chunk);
+          }
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        } finally {
+          finish();
+          if (tempDir) {
+            await rm(tempDir, { recursive: true, force: true });
+          }
+        }
+      },
+      cancel() {
+        finish();
+      },
     });
 
-    nodeStream.on("error", cleanup);
-    nodeStream.on("close", cleanup);
-
-    return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
+    return new Response(stream, {
       headers: {
-        "Content-Type": MIME_TYPES[extension] ?? "application/octet-stream",
-        "Content-Length": String(fileStat.size),
+        "Content-Type": MIME_TYPES[`.${extension}`] ?? "application/octet-stream",
         "Content-Disposition": contentDisposition(filename),
         "Cache-Control": "no-store",
         "X-Filename": encodeURIComponent(filename),
@@ -139,10 +159,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    if (tempDir) {
-      await rm(tempDir, { recursive: true, force: true });
-    }
-
+    release?.();
     return jsonError(error, locale, "download_failed", request);
   }
 }

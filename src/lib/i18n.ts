@@ -64,7 +64,10 @@ export const messages = {
     parse_link: "Could not parse the link.",
     no_file: "The server did not return a file.",
     clipboard: "No clipboard access. Paste the link manually.",
-    too_busy: "The server is busy. Wait a few seconds and try again.",
+    too_busy: "The queue is full. Wait a minute and try again.",
+    video_too_long: "Videos longer than 10 minutes cannot be downloaded.",
+    queueAhead: "In queue: {count} waiting.",
+    durationLimit: "Maximum length is 10 minutes. Longer videos are skipped.",
     payload_too_large: "The request is too large.",
     hosting_unsupported:
       "This app cannot download videos on Netlify. It needs a long-running Node server (Railway, Render, or a VPS), not serverless functions.",
@@ -134,7 +137,10 @@ export const messages = {
     parse_link: "Не вдалося розібрати посилання.",
     no_file: "Сервер не повернув файл.",
     clipboard: "Немає доступу до буфера обміну. Вставте посилання вручну.",
-    too_busy: "Сервер зараз зайнятий. Зачекайте кілька секунд і спробуйте знову.",
+    too_busy: "Черга заповнена. Зачекайте хвилину і спробуйте знову.",
+    video_too_long: "Відео довше за 10 хвилин завантажити не можна.",
+    queueAhead: "У черзі: {count}.",
+    durationLimit: "Максимум 10 хвилин. Довші відео не завантажуються.",
     payload_too_large: "Запит занадто великий.",
     hosting_unsupported:
       "На Netlify відео завантажити не можна. Потрібен звичайний Node-сервер (Railway, Render або VPS), а не serverless-функції.",
@@ -175,6 +181,7 @@ export type ErrorCode = Extract<
   | "no_file"
   | "clipboard"
   | "too_busy"
+  | "video_too_long"
   | "payload_too_large"
   | "hosting_unsupported"
 >;
@@ -207,6 +214,7 @@ const ERROR_CODES = new Set<string>([
   "no_file",
   "clipboard",
   "too_busy",
+  "video_too_long",
   "payload_too_large",
   "hosting_unsupported",
 ]);
