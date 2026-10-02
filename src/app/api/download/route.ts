@@ -103,55 +103,53 @@ export async function POST(request: Request) {
     detectPlatform(url);
     const quality = body.quality?.trim() || "best";
 
-    const info = await withJobSlot(
-      "info",
-      () => getVideoInfo(url),
-      request.signal,
-    );
-    const extension = quality === "audio" ? "mp3" : "mp4";
-    const filename = safeFilename(info.title, extension);
+    await withJobSlot("info", () => getVideoInfo(url), request.signal);
+
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "clip-download-"));
     release = await takeJobSlot("download", request.signal);
-    const finish = release;
+    let filePath: string;
+    let title: string;
+    try {
+      const outputTemplate = path.join(tempDir, "%(title).180B.%(ext)s");
+      await downloadVideo({ url, quality, outputTemplate });
+      const downloadedPath = await findDownloadedFile(tempDir);
+      title = path.basename(downloadedPath, path.extname(downloadedPath));
+      filePath = downloadedPath;
+
+      if (quality !== "audio") {
+        const compatiblePath = path.join(tempDir, "apple-compatible.mp4");
+        await transcodeForApple(downloadedPath, compatiblePath);
+        filePath = compatiblePath;
+      }
+    } catch (error) {
+      release();
+      release = null;
+      await rm(tempDir, { recursive: true, force: true });
+      throw error;
+    }
+    release();
     release = null;
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        let tempDir: string | null = null;
-        try {
-          tempDir = await mkdtemp(path.join(os.tmpdir(), "clip-download-"));
-          const outputTemplate = path.join(tempDir, "%(title).180B.%(ext)s");
-          await downloadVideo({ url, quality, outputTemplate });
-          const downloadedPath = await findDownloadedFile(tempDir);
-          let filePath = downloadedPath;
-
-          if (quality !== "audio") {
-            const compatiblePath = path.join(tempDir, "apple-compatible.mp4");
-            await transcodeForApple(downloadedPath, compatiblePath);
-            filePath = compatiblePath;
-          }
-
-          const nodeStream = createReadStream(filePath);
-          for await (const chunk of nodeStream) {
-            controller.enqueue(chunk);
-          }
-          controller.close();
-        } catch (error) {
-          controller.error(error);
-        } finally {
-          finish();
-          if (tempDir) {
-            await rm(tempDir, { recursive: true, force: true });
-          }
-        }
-      },
-      cancel() {
-        finish();
-      },
+    const extension = path.extname(filePath).toLowerCase();
+    const fileStat = await stat(filePath);
+    const filename = safeFilename(
+      title,
+      extension.replace(".", "") || (quality === "audio" ? "mp3" : "mp4"),
+    );
+    const nodeStream = createReadStream(filePath);
+    const cleanup = () => {
+      nodeStream.destroy();
+      void rm(tempDir, { recursive: true, force: true });
+    };
+    request.signal.addEventListener("abort", cleanup);
+    nodeStream.on("close", () => {
+      void rm(tempDir, { recursive: true, force: true });
     });
 
-    return new Response(stream, {
+    return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
       headers: {
-        "Content-Type": MIME_TYPES[`.${extension}`] ?? "application/octet-stream",
+        "Content-Type": MIME_TYPES[extension] ?? "application/octet-stream",
+        "Content-Length": String(fileStat.size),
         "Content-Disposition": contentDisposition(filename),
         "Cache-Control": "no-store",
         "X-Filename": encodeURIComponent(filename),
