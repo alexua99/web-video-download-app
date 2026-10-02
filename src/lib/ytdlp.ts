@@ -64,6 +64,7 @@ const YTDLP_PATH = path.join(
   "yt-dlp",
 );
 
+export const MAX_VIDEO_SECONDS = 10 * 60;
 const INFO_TIMEOUT_MS = 90_000;
 const DOWNLOAD_TIMEOUT_MS = 12 * 60_000;
 const TRANSCODE_TIMEOUT_MS = 15 * 60_000;
@@ -350,6 +351,13 @@ export async function getVideoInfo(url: string): Promise<VideoInfo> {
 
   if (info.is_live || info.live_status === "is_live") {
     throw new YtDlpError("live_stream");
+  }
+
+  if (
+    typeof info.duration === "number" &&
+    info.duration > MAX_VIDEO_SECONDS
+  ) {
+    throw new YtDlpError("video_too_long");
   }
 
   const title = (info.fulltitle || info.title || "video").trim();

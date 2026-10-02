@@ -86,6 +86,7 @@ export function Downloader() {
   const [progress, setProgress] = useState<number | null>(null);
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const [ahead, setAhead] = useState(0);
 
   const guessedPlatform = useMemo(() => platformFromUrl(url.trim()), [url]);
   const platforms = [
@@ -93,6 +94,41 @@ export function Downloader() {
     { id: "tiktok" as const, name: "TikTok", hint: t.tiktokHint },
     { id: "instagram" as const, name: "Instagram", hint: t.instagramHint },
   ];
+
+  useEffect(() => {
+    const waiting = status === "loading-info" || status === "downloading";
+    if (!waiting) {
+      setAhead(0);
+      return;
+    }
+
+    let cancelled = false;
+    const bucket = status === "loading-info" ? "info" : "download";
+
+    const tick = async () => {
+      try {
+        const response = await fetch(apiUrl("/api/queue"), { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          info?: { waiting?: number };
+          download?: { waiting?: number };
+        };
+        const waitingCount = Number(data[bucket]?.waiting ?? 0);
+        if (!cancelled) {
+          setAhead(Math.max(0, waitingCount));
+        }
+      } catch {
+        // queue status is optional
+      }
+    };
+
+    void tick();
+    const timer = window.setInterval(() => void tick(), 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [status]);
 
   useEffect(() => {
     if (!cooldownUntil) return;
@@ -156,11 +192,44 @@ export function Downloader() {
     }
   }
 
+  function isAppleMobile() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }
+
+  function downloadOnPhone() {
+    if (!info) return;
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = apiUrl("/api/download");
+    form.target = "_blank";
+    const fields: Record<string, string> = {
+      url: info.webpageUrl || url,
+      quality,
+      locale,
+    };
+    for (const [name, value] of Object.entries(fields)) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
+    setStatus("ready");
+  }
+
   async function download() {
     if (!info || cooldownSeconds > 0) return;
     setError(null);
     setStatus("downloading");
     setProgress(null);
+
+    if (isAppleMobile()) {
+      downloadOnPhone();
+      return;
+    }
 
     try {
       const response = await fetch(apiUrl("/api/download"), {
@@ -302,7 +371,9 @@ export function Downloader() {
             })}
           </p>
         ) : (
-          <p className="mt-3 text-sm text-white/40">{t.urlHint}</p>
+          <p className="mt-3 text-sm text-white/40">
+            {t.urlHint} {t.durationLimit}
+          </p>
         )}
       </form>
 
@@ -338,7 +409,16 @@ export function Downloader() {
         </div>
       ) : null}
 
-      {status === "loading-info" ? <PreviewSkeleton /> : null}
+      {status === "loading-info" ? (
+        <div className="space-y-3">
+          {ahead > 0 ? (
+            <p className="text-sm text-white/70" role="status">
+              {interpolate(t.queueAhead, { count: ahead })}
+            </p>
+          ) : null}
+          <PreviewSkeleton />
+        </div>
+      ) : null}
 
       {info && status !== "loading-info" ? (
         <article className="result-card">
@@ -399,6 +479,12 @@ export function Downloader() {
                   ? interpolate(t.waitSeconds, { seconds: cooldownSeconds })
                   : t.download}
             </button>
+
+            {status === "downloading" && ahead > 0 ? (
+              <p className="text-sm text-white/70" role="status">
+                {interpolate(t.queueAhead, { count: ahead })}
+              </p>
+            ) : null}
 
             {status === "downloading" ? (
               <div className="progress-track" aria-hidden>

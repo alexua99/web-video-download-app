@@ -21,12 +21,16 @@ export async function POST(request: Request) {
     locale = localeFromBody(body);
     assertDownloadHost();
 
-    const info = await withJobSlot("info", async () => {
-      const url = extractUrl(body.url ?? "");
-      const platform = detectPlatform(url);
-      const data = await getVideoInfo(url);
-      return { platform, ...data };
-    });
+    const info = await withJobSlot(
+      "info",
+      async () => {
+        const url = extractUrl(body.url ?? "");
+        const platform = detectPlatform(url);
+        const data = await getVideoInfo(url);
+        return { platform, ...data };
+      },
+      request.signal,
+    );
 
     return Response.json(info, { headers: corsHeaders(request) });
   } catch (error) {

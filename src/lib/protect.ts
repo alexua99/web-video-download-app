@@ -10,8 +10,11 @@ export const LIMITS = {
   globalDownloadPerMinute: 8,
   windowMs: 60_000,
   maxBodyBytes: 8 * 1024,
-  maxInfoJobs: 3,
-  maxDownloadJobs: 2,
+  maxInfoJobs: 2,
+  maxDownloadJobs: 1,
+  maxQueue: 20,
+  infoQueueWaitMs: 3 * 60_000,
+  downloadQueueWaitMs: 20 * 60_000,
   strikeLimit: 5,
   strikeWindowMs: 15 * 60_000,
   banMs: 15 * 60_000,
@@ -35,6 +38,16 @@ const globalHits: Record<Bucket, number[]> = {
 let infoJobs = 0;
 let downloadJobs = 0;
 let seenRequests = 0;
+
+type Waiter = {
+  grant: () => void;
+  timer: ReturnType<typeof setTimeout>;
+  signal?: AbortSignal;
+  onAbort: () => void;
+};
+
+const infoWaiters: Waiter[] = [];
+const downloadWaiters: Waiter[] = [];
 
 function now() {
   return Date.now();
@@ -167,24 +180,111 @@ export async function readJsonBody<T>(request: Request): Promise<T> {
   }
 }
 
+function waitersFor(kind: Bucket) {
+  return kind === "info" ? infoWaiters : downloadWaiters;
+}
+
+function activeJobs(kind: Bucket) {
+  return kind === "info" ? infoJobs : downloadJobs;
+}
+
+function setActiveJobs(kind: Bucket, value: number) {
+  if (kind === "info") infoJobs = value;
+  else downloadJobs = value;
+}
+
+function pump(kind: Bucket) {
+  const max = kind === "info" ? LIMITS.maxInfoJobs : LIMITS.maxDownloadJobs;
+  const queue = waitersFor(kind);
+
+  while (activeJobs(kind) < max && queue.length > 0) {
+    const waiter = queue.shift();
+    if (!waiter) break;
+    clearTimeout(waiter.timer);
+    waiter.signal?.removeEventListener("abort", waiter.onAbort);
+    setActiveJobs(kind, activeJobs(kind) + 1);
+    waiter.grant();
+  }
+}
+
+export function queueStatus() {
+  return {
+    info: { active: infoJobs, waiting: infoWaiters.length },
+    download: { active: downloadJobs, waiting: downloadWaiters.length },
+  };
+}
+
+function acquireSlot(kind: Bucket, signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new LimitError("timeout", 408, 1);
+  }
+
+  const max = kind === "info" ? LIMITS.maxInfoJobs : LIMITS.maxDownloadJobs;
+  const queue = waitersFor(kind);
+
+  if (activeJobs(kind) < max && queue.length === 0) {
+    setActiveJobs(kind, activeJobs(kind) + 1);
+    return Promise.resolve();
+  }
+
+  if (queue.length >= LIMITS.maxQueue) {
+    throw new LimitError("too_busy", 503, 30);
+  }
+
+  const waitMs =
+    kind === "info" ? LIMITS.infoQueueWaitMs : LIMITS.downloadQueueWaitMs;
+
+  return new Promise<void>((resolve, reject) => {
+    const waiter: Waiter = {
+      grant: () => resolve(),
+      timer: setTimeout(() => {
+        const index = queue.indexOf(waiter);
+        if (index >= 0) queue.splice(index, 1);
+        signal?.removeEventListener("abort", waiter.onAbort);
+        reject(new LimitError("too_busy", 503, 20));
+      }, waitMs),
+      signal,
+      onAbort: () => undefined,
+    };
+
+    waiter.onAbort = () => {
+      clearTimeout(waiter.timer);
+      const index = queue.indexOf(waiter);
+      if (index >= 0) queue.splice(index, 1);
+      reject(new LimitError("timeout", 408, 1));
+    };
+
+    signal?.addEventListener("abort", waiter.onAbort, { once: true });
+    queue.push(waiter);
+  });
+}
+
+export async function takeJobSlot(
+  kind: Bucket,
+  signal?: AbortSignal,
+): Promise<() => void> {
+  await acquireSlot(kind, signal);
+  let released = false;
+
+  return () => {
+    if (released) return;
+    released = true;
+    setActiveJobs(kind, Math.max(0, activeJobs(kind) - 1));
+    pump(kind);
+  };
+}
+
 export async function withJobSlot<T>(
   kind: Bucket,
   task: () => Promise<T>,
+  signal?: AbortSignal,
 ): Promise<T> {
-  const max = kind === "info" ? LIMITS.maxInfoJobs : LIMITS.maxDownloadJobs;
-  const current = kind === "info" ? infoJobs : downloadJobs;
-
-  if (current >= max) {
-    throw new LimitError("too_busy", 503, 12);
-  }
-
-  if (kind === "info") infoJobs += 1;
-  else downloadJobs += 1;
+  await acquireSlot(kind, signal);
 
   try {
     return await task();
   } finally {
-    if (kind === "info") infoJobs = Math.max(0, infoJobs - 1);
-    else downloadJobs = Math.max(0, downloadJobs - 1);
+    setActiveJobs(kind, Math.max(0, activeJobs(kind) - 1));
+    pump(kind);
   }
 }

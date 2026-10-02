@@ -22,12 +22,16 @@ export function middleware(request: NextRequest) {
         status: 204,
         headers: {
           "Access-Control-Allow-Origin": origin,
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type, Accept-Language",
           "Access-Control-Max-Age": "86400",
           Vary: "Origin",
         },
       });
+    }
+
+    if (request.method === "GET" && request.nextUrl.pathname === "/api/queue") {
+      return withLocaleHeader(request);
     }
 
     if (request.method !== "POST") {
@@ -50,7 +54,11 @@ export function middleware(request: NextRequest) {
     }
 
     const contentType = request.headers.get("content-type") ?? "";
-    if (contentType && !contentType.toLowerCase().includes("application/json")) {
+    const normalizedType = contentType.toLowerCase();
+    const allowedBody =
+      normalizedType.includes("application/json") ||
+      normalizedType.includes("application/x-www-form-urlencoded");
+    if (contentType && !allowedBody) {
       return NextResponse.json(
         { error: translate(locale, "parse_link"), code: "parse_link" },
         { status: 415 },

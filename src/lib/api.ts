@@ -37,7 +37,7 @@ export function corsHeaders(request?: Request): Record<string, string> {
   if (!origin) return {};
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Accept-Language",
     "Access-Control-Expose-Headers":
       "Content-Disposition, X-Filename, Retry-After",
