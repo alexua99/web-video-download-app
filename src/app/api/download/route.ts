@@ -6,7 +6,6 @@ import { Readable } from "node:stream";
 import { detectPlatform, extractUrl } from "@/lib/platforms";
 import {
   downloadVideo,
-  getVideoInfo,
   safeFilename,
   transcodeForApple,
   YtDlpError,
@@ -18,7 +17,6 @@ import {
   enforceRateLimit,
   readJsonBody,
   takeJobSlot,
-  withJobSlot,
 } from "@/lib/protect";
 
 export const runtime = "nodejs";
@@ -103,22 +101,25 @@ export async function POST(request: Request) {
     detectPlatform(url);
     const quality = body.quality?.trim() || "best";
 
-    await withJobSlot("info", () => getVideoInfo(url), request.signal);
-
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "clip-download-"));
     release = await takeJobSlot("download", request.signal);
     let filePath: string;
     let title: string;
     try {
       const outputTemplate = path.join(tempDir, "%(title).180B.%(ext)s");
-      await downloadVideo({ url, quality, outputTemplate });
+      await downloadVideo({
+        url,
+        quality,
+        outputTemplate,
+        signal: request.signal,
+      });
       const downloadedPath = await findDownloadedFile(tempDir);
       title = path.basename(downloadedPath, path.extname(downloadedPath));
       filePath = downloadedPath;
 
-      if (quality !== "audio") {
+      if (quality !== "audio" && path.extname(downloadedPath).toLowerCase() !== ".mp4") {
         const compatiblePath = path.join(tempDir, "apple-compatible.mp4");
-        await transcodeForApple(downloadedPath, compatiblePath);
+        await transcodeForApple(downloadedPath, compatiblePath, request.signal);
         filePath = compatiblePath;
       }
     } catch (error) {

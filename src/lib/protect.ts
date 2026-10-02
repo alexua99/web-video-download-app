@@ -11,7 +11,7 @@ export const LIMITS = {
   windowMs: 60_000,
   maxBodyBytes: 8 * 1024,
   maxInfoJobs: 2,
-  maxDownloadJobs: 1,
+  maxDownloadJobs: 2,
   maxQueue: 20,
   infoQueueWaitMs: 3 * 60_000,
   downloadQueueWaitMs: 20 * 60_000,

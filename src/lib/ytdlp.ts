@@ -92,6 +92,15 @@ function friendlyError(stderr: string, fallback: ErrorCode): ErrorCode {
   if (text.includes("unsupported url") || text.includes("no video formats")) {
     return "no_video";
   }
+  if (
+    text.includes("does not pass filter") ||
+    text.includes("video is too long")
+  ) {
+    return "video_too_long";
+  }
+  if (text.includes("is live") || text.includes("live event")) {
+    return "live_stream";
+  }
   if (text.includes("http error 403") || text.includes("403")) {
     return "forbidden";
   }
@@ -188,14 +197,34 @@ async function baseArgs(): Promise<string[]> {
 function runYtDlp(
   args: string[],
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new YtDlpError("timeout"));
+      return;
+    }
+
     const child = spawn(YTDLP_PATH, args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
     let stdout = "";
     let stderr = "";
+    let settled = false;
+
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      callback();
+    };
+
+    const onAbort = () => {
+      child.kill("SIGKILL");
+      finish(() => reject(new YtDlpError("timeout")));
+    };
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
@@ -208,26 +237,37 @@ function runYtDlp(
 
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
-      reject(new YtDlpError("timeout"));
+      finish(() => reject(new YtDlpError("timeout")));
     }, timeoutMs);
 
+    signal?.addEventListener("abort", onAbort, { once: true });
+
     child.on("error", (error) => {
-      clearTimeout(timer);
-      reject(
-        new YtDlpError(
-          error.message.includes("ENOENT") ? "ytdlp_missing" : "downloader_failed",
+      finish(() =>
+        reject(
+          new YtDlpError(
+            error.message.includes("ENOENT") ? "ytdlp_missing" : "downloader_failed",
+          ),
         ),
       );
     });
 
     child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0) {
-        resolve({ stdout, stderr });
-        return;
-      }
-
-      reject(new YtDlpError(friendlyError(stderr || stdout, "process_failed")));
+      finish(() => {
+        if (signal?.aborted) {
+          reject(new YtDlpError("timeout"));
+          return;
+        }
+        if (code === 0) {
+          resolve({ stdout, stderr });
+          return;
+        }
+        const codeName = friendlyError(stderr || stdout, "process_failed");
+        if (codeName === "process_failed" || codeName === "forbidden") {
+          console.error("yt-dlp failed:", (stderr || stdout).slice(-1500));
+        }
+        reject(new YtDlpError(codeName));
+      });
     });
   });
 }
@@ -379,6 +419,7 @@ export async function downloadVideo(options: {
   url: string;
   quality: string;
   outputTemplate: string;
+  signal?: AbortSignal;
 }): Promise<void> {
   const { format, extractAudio } = resolveFormat(options.quality);
   const args = [
@@ -388,6 +429,8 @@ export async function downloadVideo(options: {
     "--restrict-filenames",
     "--max-filesize",
     "2G",
+    "--match-filters",
+    "!is_live & duration <=? 600",
     "-f",
     format,
     "-S",
@@ -411,12 +454,13 @@ export async function downloadVideo(options: {
   }
 
   args.push("--", options.url);
-  await runYtDlp(args, DOWNLOAD_TIMEOUT_MS);
+  await runYtDlp(args, DOWNLOAD_TIMEOUT_MS, options.signal);
 }
 
 export function transcodeForApple(
   inputPath: string,
   outputPath: string,
+  signal?: AbortSignal,
 ): Promise<void> {
   if (!ffmpegPath) {
     throw new YtDlpError("downloader_failed");
@@ -467,6 +511,11 @@ export function transcodeForApple(
       stderr += chunk;
     });
 
+    const onAbort = () => {
+      child.kill("SIGKILL");
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
       reject(new YtDlpError("timeout"));
@@ -474,11 +523,17 @@ export function transcodeForApple(
 
     child.on("error", () => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       reject(new YtDlpError("downloader_failed"));
     });
 
     child.on("close", (code) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      if (signal?.aborted) {
+        reject(new YtDlpError("timeout"));
+        return;
+      }
       if (code === 0) {
         resolve();
         return;
