@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import {
   interpolate,
@@ -88,6 +88,7 @@ export function Downloader() {
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [ahead, setAhead] = useState(0);
   const [phoneFile, setPhoneFile] = useState<File | null>(null);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
 
   const guessedPlatform = useMemo(() => platformFromUrl(url.trim()), [url]);
   const platforms = [
@@ -195,9 +196,14 @@ export function Downloader() {
     }
   }
 
-  function isAppleMobile() {
-    return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  function shouldSaveOnPage() {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   }
+
+  useEffect(() => {
+    if (!phoneFile) return;
+    saveButtonRef.current?.scrollIntoView({ block: "center" });
+  }, [phoneFile]);
 
   async function savePhoneFile() {
     if (!phoneFile) return;
@@ -285,20 +291,11 @@ export function Downloader() {
         { type },
       );
 
-      if (isAppleMobile()) {
+      if (shouldSaveOnPage()) {
         const file = new File([blob], filename, { type });
         setPhoneFile(file);
         setProgress(100);
         setStatus("ready");
-        try {
-          if (navigator.canShare?.({ files: [file] })) {
-            await navigator.share({ files: [file], title: filename });
-          }
-        } catch (err) {
-          if (!(err instanceof DOMException && err.name === "AbortError")) {
-            // The save button stays on the page for a second tap.
-          }
-        }
         return;
       }
 
@@ -483,6 +480,7 @@ export function Downloader() {
 
             {phoneFile ? (
               <button
+                ref={saveButtonRef}
                 type="button"
                 onClick={() => void savePhoneFile()}
                 className="primary-button download-button"
