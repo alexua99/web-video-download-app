@@ -197,7 +197,10 @@ export function Downloader() {
   }
 
   function shouldSaveOnPage() {
-    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const ua = navigator.userAgent;
+    if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
+    // iPhone and iPad in desktop mode report themselves as a Mac.
+    return navigator.maxTouchPoints > 1;
   }
 
   useEffect(() => {
@@ -216,7 +219,9 @@ export function Downloader() {
       if (err instanceof DOMException && err.name === "AbortError") return;
     }
 
-    const objectUrl = URL.createObjectURL(phoneFile);
+    const objectUrl = URL.createObjectURL(
+      new Blob([phoneFile], { type: "application/octet-stream" }),
+    );
     const link = document.createElement("a");
     link.href = objectUrl;
     link.download = phoneFile.name;
