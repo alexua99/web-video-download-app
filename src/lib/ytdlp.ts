@@ -73,6 +73,9 @@ let environmentCookiesPath: Promise<string | null> | null = null;
 function friendlyError(stderr: string, fallback: ErrorCode): ErrorCode {
   const text = stderr.toLowerCase();
 
+  if (text.includes("not a bot")) {
+    return "process_failed";
+  }
   if (text.includes("sign in") || text.includes("login required")) {
     return "login_required";
   }
@@ -184,6 +187,8 @@ async function baseArgs(): Promise<string[]> {
     "node",
     "--add-header",
     "Accept-Language:en-US,en;q=0.9,ru;q=0.8",
+    "--extractor-args",
+    "youtube:player_client=default,android",
     ...(await cookiesArgs()),
   ];
 
