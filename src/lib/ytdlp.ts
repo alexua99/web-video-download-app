@@ -462,6 +462,102 @@ export async function downloadVideo(options: {
   await runYtDlp(args, DOWNLOAD_TIMEOUT_MS, options.signal);
 }
 
+function runFfmpeg(
+  args: string[],
+  signal: AbortSignal | undefined,
+  timeoutMs: number,
+): Promise<{ code: number; stderr: string }> {
+  if (!ffmpegPath) {
+    return Promise.reject(new YtDlpError("downloader_failed"));
+  }
+
+  const executable = ffmpegPath;
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new YtDlpError("timeout"));
+      return;
+    }
+
+    const child = spawn(executable, args, {
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+
+    const onAbort = () => child.kill("SIGKILL");
+    signal?.addEventListener("abort", onAbort, { once: true });
+    const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
+
+    child.on("error", () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      reject(new YtDlpError("downloader_failed"));
+    });
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      if (signal?.aborted) {
+        reject(new YtDlpError("timeout"));
+        return;
+      }
+      resolve({ code: code ?? 1, stderr });
+    });
+  });
+}
+
+function phoneCanStore(ffmpegInfo: string): boolean {
+  const video = /Video:\s*(\w+)/.exec(ffmpegInfo)?.[1] ?? "";
+  if (video !== "h264") return false;
+  if (!ffmpegInfo.includes("yuv420p")) return false;
+  const audio = /Audio:\s*(\w+)/.exec(ffmpegInfo)?.[1];
+  return !audio || audio === "aac";
+}
+
+// iPhone Photos ignores "Save to gallery" unless the file is H.264/AAC
+// with the index at the front. Instagram MP4s usually are not.
+export async function prepareForPhone(
+  inputPath: string,
+  outputPath: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const probed = await runFfmpeg(
+    ["-hide_banner", "-i", inputPath],
+    signal,
+    30_000,
+  );
+  if (!phoneCanStore(probed.stderr)) {
+    await transcodeForApple(inputPath, outputPath, signal);
+    return;
+  }
+
+  const remuxed = await runFfmpeg(
+    [
+      "-y",
+      "-i",
+      inputPath,
+      "-map",
+      "0:v:0",
+      "-map",
+      "0:a:0?",
+      "-c",
+      "copy",
+      "-movflags",
+      "+faststart",
+      outputPath,
+    ],
+    signal,
+    2 * 60_000,
+  );
+  if (remuxed.code !== 0) {
+    console.error("ffmpeg remux failed:", remuxed.stderr.slice(-2000));
+    await transcodeForApple(inputPath, outputPath, signal);
+  }
+}
+
 export function transcodeForApple(
   inputPath: string,
   outputPath: string,

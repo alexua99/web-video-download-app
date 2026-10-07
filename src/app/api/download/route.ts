@@ -6,8 +6,8 @@ import { Readable } from "node:stream";
 import { detectPlatform, extractUrl } from "@/lib/platforms";
 import {
   downloadVideo,
+  prepareForPhone,
   safeFilename,
-  transcodeForApple,
   YtDlpError,
 } from "@/lib/ytdlp";
 import { corsHeaders, jsonError, localeFromBody, localeFromRequest } from "@/lib/api";
@@ -117,9 +117,9 @@ export async function POST(request: Request) {
       title = path.basename(downloadedPath, path.extname(downloadedPath));
       filePath = downloadedPath;
 
-      if (quality !== "audio" && path.extname(downloadedPath).toLowerCase() !== ".mp4") {
-        const compatiblePath = path.join(tempDir, "apple-compatible.mp4");
-        await transcodeForApple(downloadedPath, compatiblePath, request.signal);
+      if (quality !== "audio") {
+        const compatiblePath = path.join(tempDir, "phone.mp4");
+        await prepareForPhone(downloadedPath, compatiblePath, request.signal);
         filePath = compatiblePath;
       }
     } catch (error) {

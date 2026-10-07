@@ -24,6 +24,8 @@ export const messages = {
     qualityAudio: "Audio only (MP3)",
     download: "Download",
     saveToPhone: "Save to phone",
+    desktopSaveHint:
+      "Turn off Request Desktop Website in the aA menu. While it is on, Save to Photos does not keep the video.",
     preparing: "Preparing file…",
     downloading: "Downloading {progress}%",
     waitSeconds: "Wait {seconds}s",
@@ -97,6 +99,8 @@ export const messages = {
     qualityAudio: "Лише аудіо (MP3)",
     download: "Завантажити",
     saveToPhone: "Зберегти на телефон",
+    desktopSaveHint:
+      "Вимкніть «Запит настільного вебсайту» в меню аА. Поки його увімкнено, «Зберегти у Фото» не записує відео.",
     preparing: "Готуємо файл…",
     downloading: "Завантажуємо {progress}%",
     waitSeconds: "Зачекайте {seconds}с",
