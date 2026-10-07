@@ -88,6 +88,7 @@ export function Downloader() {
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [ahead, setAhead] = useState(0);
   const [phoneFile, setPhoneFile] = useState<File | null>(null);
+  const [desktopSite, setDesktopSite] = useState(false);
   const saveButtonRef = useRef<HTMLButtonElement>(null);
 
   const guessedPlatform = useMemo(() => platformFromUrl(url.trim()), [url]);
@@ -204,27 +205,37 @@ export function Downloader() {
   }
 
   useEffect(() => {
+    setDesktopSite(
+      /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1,
+    );
+  }, []);
+
+  useEffect(() => {
     if (!phoneFile) return;
     saveButtonRef.current?.scrollIntoView({ block: "center" });
   }, [phoneFile]);
 
   async function savePhoneFile() {
     if (!phoneFile) return;
+    const audio =
+      phoneFile.type.startsWith("audio/") || /\.mp3$/i.test(phoneFile.name);
+    // iOS Photos only stores a shared file named like a plain video.
+    const file = new File([phoneFile], audio ? "audio.mp3" : "video.mp4", {
+      type: audio ? "audio/mpeg" : "video/mp4",
+    });
     try {
-      if (navigator.canShare?.({ files: [phoneFile] })) {
-        await navigator.share({ files: [phoneFile], title: phoneFile.name });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] });
         return;
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
     }
 
-    const objectUrl = URL.createObjectURL(
-      new Blob([phoneFile], { type: "application/octet-stream" }),
-    );
+    const objectUrl = URL.createObjectURL(file);
     const link = document.createElement("a");
     link.href = objectUrl;
-    link.download = phoneFile.name;
+    link.download = file.name;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -492,6 +503,9 @@ export function Downloader() {
               >
                 {t.saveToPhone}
               </button>
+            ) : null}
+            {phoneFile && desktopSite ? (
+              <p className="text-sm text-white/60">{t.desktopSaveHint}</p>
             ) : null}
 
             <button
