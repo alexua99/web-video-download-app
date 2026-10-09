@@ -30,7 +30,11 @@ export function middleware(request: NextRequest) {
       });
     }
 
-    if (request.method === "GET" && request.nextUrl.pathname === "/api/queue") {
+    if (
+      request.method === "GET" &&
+      (request.nextUrl.pathname === "/api/queue" ||
+        request.nextUrl.pathname === "/api/recent")
+    ) {
       return withLocaleHeader(request);
     }
 
