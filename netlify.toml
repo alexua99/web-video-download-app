@@ -2,6 +2,6 @@
   command = "npm run build"
 
 [build.environment]
-  NEXT_PUBLIC_SITE_URL = "https://alex-video-download.netlify.app"
+  NEXT_PUBLIC_SITE_URL = "https://vidtug.com"
   NEXT_PUBLIC_HOSTING = "netlify"
-  NEXT_PUBLIC_API_BASE = "https://advised-financial-wallet-pixels.trycloudflare.com"
+  NEXT_PUBLIC_API_BASE = "https://api.vidtug.com"

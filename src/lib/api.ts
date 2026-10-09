@@ -4,6 +4,8 @@ import type { ErrorCode, Locale } from "@/lib/i18n";
 import { parseLocale, translate } from "@/lib/i18n";
 
 const DEFAULT_CORS_ORIGINS = [
+  "https://vidtug.com",
+  "https://www.vidtug.com",
   "https://alex-video-download.netlify.app",
   "http://localhost:3000",
 ];
