@@ -1,6 +1,7 @@
 "use client";
 
 import { Downloader } from "@/components/Downloader";
+import { RecentTicker } from "@/components/RecentTicker";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { Logo } from "@/components/Logo";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -35,6 +36,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           </p>
         </div>
 
+        <RecentTicker />
         <Downloader />
         {process.env.NEXT_PUBLIC_HOSTING === "netlify" &&
         !process.env.NEXT_PUBLIC_API_BASE ? (

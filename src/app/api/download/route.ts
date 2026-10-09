@@ -13,6 +13,7 @@ import {
 import { corsHeaders, jsonError, localeFromBody, localeFromRequest } from "@/lib/api";
 import { assertDownloadHost } from "@/lib/hosting";
 import type { Locale } from "@/lib/i18n";
+import { recordRecentDownload } from "@/lib/recent";
 import {
   enforceRateLimit,
   readJsonBody,
@@ -98,7 +99,7 @@ export async function POST(request: Request) {
     locale = localeFromBody(body);
     assertDownloadHost();
     const url = extractUrl(body.url ?? "");
-    detectPlatform(url);
+    const platform = detectPlatform(url);
     const quality = body.quality?.trim() || "best";
 
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "clip-download-"));
@@ -137,6 +138,7 @@ export async function POST(request: Request) {
       title,
       extension.replace(".", "") || (quality === "audio" ? "mp3" : "mp4"),
     );
+    recordRecentDownload(title, platform);
     const nodeStream = createReadStream(filePath);
     const cleanup = () => {
       nodeStream.destroy();
