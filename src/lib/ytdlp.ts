@@ -432,9 +432,6 @@ export async function downloadVideo(options: {
     "--no-mtime",
     "--force-overwrites",
     "--restrict-filenames",
-    "--write-thumbnail",
-    "--convert-thumbnails",
-    "jpg",
     "--max-filesize",
     "2G",
     "--match-filters",
@@ -463,6 +460,30 @@ export async function downloadVideo(options: {
 
   args.push("--", options.url);
   await runYtDlp(args, DOWNLOAD_TIMEOUT_MS, options.signal);
+}
+
+export async function downloadThumbnail(
+  url: string,
+  outputTemplate: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await runYtDlp(
+      [
+        ...(await baseArgs()),
+        "--skip-download",
+        "--write-thumbnail",
+        "-o",
+        outputTemplate,
+        "--",
+        url,
+      ],
+      30_000,
+      signal,
+    );
+  } catch {
+    // The video file is enough; the ticker can live without a still.
+  }
 }
 
 function runFfmpeg(

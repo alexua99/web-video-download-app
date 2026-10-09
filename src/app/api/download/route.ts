@@ -5,6 +5,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { detectPlatform, extractUrl } from "@/lib/platforms";
 import {
+  downloadThumbnail,
   downloadVideo,
   prepareForPhone,
   safeFilename,
@@ -126,6 +127,11 @@ export async function POST(request: Request) {
       const downloadedPath = await findDownloadedFile(tempDir);
       title = path.basename(downloadedPath, path.extname(downloadedPath));
       filePath = downloadedPath;
+      await downloadThumbnail(
+        url,
+        path.join(tempDir, "thumb"),
+        request.signal,
+      );
       thumbnailPath = await findThumbnail(tempDir);
 
       if (quality !== "audio") {
