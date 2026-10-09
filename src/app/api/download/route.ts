@@ -49,6 +49,14 @@ function contentDisposition(filename: string): string {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
+async function findThumbnail(directory: string): Promise<string | null> {
+  const names = await readdir(directory);
+  const image = names.find((name) =>
+    [".jpg", ".jpeg", ".png", ".webp"].includes(path.extname(name).toLowerCase()),
+  );
+  return image ? path.join(directory, image) : null;
+}
+
 async function findDownloadedFile(directory: string): Promise<string> {
   const names = await readdir(directory);
   const media = names.filter((name) =>
@@ -106,6 +114,7 @@ export async function POST(request: Request) {
     release = await takeJobSlot("download", request.signal);
     let filePath: string;
     let title: string;
+    let thumbnailPath: string | null = null;
     try {
       const outputTemplate = path.join(tempDir, "%(title).180B.%(ext)s");
       await downloadVideo({
@@ -117,6 +126,7 @@ export async function POST(request: Request) {
       const downloadedPath = await findDownloadedFile(tempDir);
       title = path.basename(downloadedPath, path.extname(downloadedPath));
       filePath = downloadedPath;
+      thumbnailPath = await findThumbnail(tempDir);
 
       if (quality !== "audio") {
         const compatiblePath = path.join(tempDir, "phone.mp4");
@@ -138,7 +148,7 @@ export async function POST(request: Request) {
       title,
       extension.replace(".", "") || (quality === "audio" ? "mp3" : "mp4"),
     );
-    recordRecentDownload(title, platform);
+    recordRecentDownload(title, platform, thumbnailPath, url);
     const nodeStream = createReadStream(filePath);
     const cleanup = () => {
       nodeStream.destroy();

@@ -33,7 +33,8 @@ export function middleware(request: NextRequest) {
     if (
       request.method === "GET" &&
       (request.nextUrl.pathname === "/api/queue" ||
-        request.nextUrl.pathname === "/api/recent")
+        request.nextUrl.pathname === "/api/recent" ||
+        request.nextUrl.pathname.startsWith("/api/recent-image/"))
     ) {
       return withLocaleHeader(request);
     }
