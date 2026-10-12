@@ -188,7 +188,7 @@ async function baseArgs(): Promise<string[]> {
     "--add-header",
     "Accept-Language:en-US,en;q=0.9,ru;q=0.8",
     "--extractor-args",
-    "youtube:player_client=default,android",
+    "youtube:player_client=default,android,web_safari,web_embedded",
     ...(await cookiesArgs()),
   ];
 

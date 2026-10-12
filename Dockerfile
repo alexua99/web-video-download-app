@@ -12,7 +12,7 @@ RUN npm ci
 COPY . .
 # The August 2026 yt-dlp build is rejected by YouTube as a bot.
 # This nightly solves the JS challenge with Node; Android is the fallback.
-RUN python3 -c "import urllib.request; urllib.request.urlretrieve('https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/download/2026.09.27.232945/yt-dlp', 'node_modules/youtube-dl-exec/bin/yt-dlp')" \
+RUN python3 -c "import urllib.request; urllib.request.urlretrieve('https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/download/2026.10.10.233141/yt-dlp', 'node_modules/youtube-dl-exec/bin/yt-dlp')" \
   && chmod 755 node_modules/youtube-dl-exec/bin/yt-dlp
 RUN npm run build
 

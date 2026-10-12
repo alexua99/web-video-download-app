@@ -113,12 +113,12 @@ export function Downloader() {
         const response = await fetch(apiUrl("/api/queue"), { cache: "no-store" });
         if (!response.ok) return;
         const data = (await response.json()) as {
-          info?: { active?: number; waiting?: number };
-          download?: { active?: number; waiting?: number };
+          info?: { active?: number; waiting?: number; max?: number };
+          download?: { active?: number; waiting?: number; max?: number };
         };
         const active = Number(data[bucket]?.active ?? 0);
         const waitingCount = Number(data[bucket]?.waiting ?? 0);
-        const limit = bucket === "info" ? 2 : 2;
+        const limit = Number(data[bucket]?.max) || (bucket === "info" ? 2 : 4);
         if (!cancelled) {
           setAhead(active >= limit ? Math.max(0, waitingCount) : 0);
         }

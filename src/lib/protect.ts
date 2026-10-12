@@ -11,7 +11,7 @@ export const LIMITS = {
   windowMs: 60_000,
   maxBodyBytes: 8 * 1024,
   maxInfoJobs: 2,
-  maxDownloadJobs: 2,
+  maxDownloadJobs: 4,
   maxQueue: 20,
   infoQueueWaitMs: 3 * 60_000,
   downloadQueueWaitMs: 20 * 60_000,
@@ -209,8 +209,16 @@ function pump(kind: Bucket) {
 
 export function queueStatus() {
   return {
-    info: { active: infoJobs, waiting: infoWaiters.length },
-    download: { active: downloadJobs, waiting: downloadWaiters.length },
+    info: {
+      active: infoJobs,
+      waiting: infoWaiters.length,
+      max: LIMITS.maxInfoJobs,
+    },
+    download: {
+      active: downloadJobs,
+      waiting: downloadWaiters.length,
+      max: LIMITS.maxDownloadJobs,
+    },
   };
 }
 
