@@ -43,10 +43,10 @@ export const messages = {
     unsupported_platform:
       "Only YouTube, TikTok, and Instagram are supported. Other sites are blocked.",
     login_required:
-      "Sign-in is required. Put cookies.txt in the project root and try again.",
+      "This video can only be opened after signing in, so it can't be downloaded.",
     private_video: "This video is private and cannot be downloaded.",
     age_restricted:
-      "This video is age-restricted. You need cookies.txt from an account that can open it.",
+      "This video is restricted (age or audience limits set by the author or platform), so it can't be downloaded.",
     unavailable: "The video is unavailable or has been removed.",
     no_video:
       "No video found at this link. Make sure it is a video post, not a photo or story.",
@@ -119,10 +119,10 @@ export const messages = {
     unsupported_platform:
       "Підтримуються лише YouTube, TikTok і Instagram. Інші сайти недоступні.",
     login_required:
-      "Потрібна авторизація. Покладіть cookies.txt у корінь проєкту і спробуйте знову.",
+      "Це відео відкривається лише після входу в акаунт, тому завантажити його не можна.",
     private_video: "Це приватне відео — завантажити його не можна.",
     age_restricted:
-      "Відео з віковим обмеженням. Потрібен cookies.txt з акаунта, який його відкриває.",
+      "Це відео з обмеженням (вікове або для певної аудиторії, встановлене автором чи платформою), тому завантажити його не можна.",
     unavailable: "Відео недоступне або його видалили.",
     no_video:
       "За цим посиланням не вдалося знайти відео. Перевірте, що це допис із роликом, а не фото чи сторіс.",

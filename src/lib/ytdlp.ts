@@ -82,7 +82,11 @@ function friendlyError(stderr: string, fallback: ErrorCode): ErrorCode {
   if (text.includes("private") || text.includes("this video is private")) {
     return "private_video";
   }
-  if (text.includes("age") && text.includes("restrict")) {
+  if (
+    (text.includes("age") && text.includes("restrict")) ||
+    text.includes("isn't available to everyone") ||
+    text.includes("certain audiences")
+  ) {
     return "age_restricted";
   }
   if (
