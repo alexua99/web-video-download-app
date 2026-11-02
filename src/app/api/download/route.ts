@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -117,15 +117,22 @@ export async function POST(request: Request) {
     let title: string;
     let thumbnailPath: string | null = null;
     try {
-      const outputTemplate = path.join(tempDir, "%(title).180B.%(ext)s");
+      // Name the file by id: a title made only of emoji or Cyrillic can
+      // shrink to "...." and leave ffmpeg without a usable extension. The
+      // real title is written to a side file and used for the download name.
+      const outputTemplate = path.join(tempDir, "%(id)s.%(ext)s");
+      const titleFile = path.join(tempDir, "title.txt");
       await downloadVideo({
         url,
         quality,
         outputTemplate,
+        titleFile,
         signal: request.signal,
       });
       const downloadedPath = await findDownloadedFile(tempDir);
-      title = path.basename(downloadedPath, path.extname(downloadedPath));
+      title =
+        (await readFile(titleFile, "utf8").catch(() => "")).split("\n")[0].trim() ||
+        path.basename(downloadedPath, path.extname(downloadedPath));
       filePath = downloadedPath;
       await downloadThumbnail(
         url,

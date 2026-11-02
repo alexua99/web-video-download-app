@@ -5,7 +5,8 @@
 TARGET="${YTDLP_BIN:-/app/node_modules/youtube-dl-exec/bin/yt-dlp}"
 PROBE_URL="${YTDLP_PROBE_URL:-https://www.youtube.com/watch?v=jNQXAC9IVRw}"
 NEW="/tmp/yt-dlp.new"
-URL="https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp"
+# yt-dlp_linux bundles curl_cffi, which TikTok needs for browser impersonation.
+URL="https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_linux"
 
 log() {
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) ytdlp-refresh: $*"

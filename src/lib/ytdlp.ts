@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import ffmpegPath from "ffmpeg-static";
 import { YtDlpError } from "@/lib/errors";
+import { detectPlatform } from "@/lib/platforms";
 import type { ErrorCode } from "@/lib/i18n";
 
 export { YtDlpError };
@@ -150,7 +151,20 @@ function cookiesFromEnvironment(): Promise<string | null> {
   return environmentCookiesPath;
 }
 
-async function cookiesArgs(): Promise<string[]> {
+function needsCookies(url: string): boolean {
+  try {
+    return detectPlatform(url) === "instagram";
+  } catch {
+    return false;
+  }
+}
+
+// Only Instagram needs the signed-in cookies. yt-dlp also writes every cookie
+// it receives back into the file, and stale TikTok challenge cookies saved
+// there make TikTok answer 403, so other platforms never get the file.
+async function cookiesArgs(url: string): Promise<string[]> {
+  if (!needsCookies(url)) return [];
+
   const environmentFile = await cookiesFromEnvironment();
   const envFile = process.env.COOKIES_FILE;
   const candidates = [
@@ -176,7 +190,7 @@ async function cookiesArgs(): Promise<string[]> {
   return [];
 }
 
-async function baseArgs(): Promise<string[]> {
+async function baseArgs(url: string): Promise<string[]> {
   const args = [
     "--no-playlist",
     "--no-warnings",
@@ -193,7 +207,7 @@ async function baseArgs(): Promise<string[]> {
     "Accept-Language:en-US,en;q=0.9,ru;q=0.8",
     "--extractor-args",
     "youtube:player_client=default,android,web_safari,web_embedded",
-    ...(await cookiesArgs()),
+    ...(await cookiesArgs(url)),
   ];
 
   if (ffmpegPath) {
@@ -385,7 +399,7 @@ export function resolveFormat(quality: string): {
 
 export async function getVideoInfo(url: string): Promise<VideoInfo> {
   const { stdout } = await runYtDlp(
-    [...(await baseArgs()), "--dump-single-json", "--skip-download", "--", url],
+    [...(await baseArgs(url)), "--dump-single-json", "--skip-download", "--", url],
     INFO_TIMEOUT_MS,
   );
 
@@ -428,11 +442,12 @@ export async function downloadVideo(options: {
   url: string;
   quality: string;
   outputTemplate: string;
+  titleFile?: string;
   signal?: AbortSignal;
 }): Promise<void> {
   const { format, extractAudio } = resolveFormat(options.quality);
   const args = [
-    ...(await baseArgs()),
+    ...(await baseArgs(options.url)),
     "--no-mtime",
     "--force-overwrites",
     "--restrict-filenames",
@@ -462,6 +477,10 @@ export async function downloadVideo(options: {
     );
   }
 
+  if (options.titleFile) {
+    args.push("--print-to-file", "%(title)s", options.titleFile);
+  }
+
   args.push("--", options.url);
   await runYtDlp(args, DOWNLOAD_TIMEOUT_MS, options.signal);
 }
@@ -474,7 +493,7 @@ export async function downloadThumbnail(
   try {
     await runYtDlp(
       [
-        ...(await baseArgs()),
+        ...(await baseArgs(url)),
         "--skip-download",
         "--write-thumbnail",
         "-o",

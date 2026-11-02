@@ -51,7 +51,7 @@ export const messages = {
     no_video:
       "No video found at this link. Make sure it is a video post, not a photo or story.",
     forbidden:
-      "The platform rejected the request. Try another link or add cookies.txt.",
+      "The platform rejected the request. Try again in a minute or use another link.",
     rate_limited: "Too many requests. Wait a minute and try again.",
     timeout: "The platform did not respond in time. Please try again.",
     ytdlp_missing: "yt-dlp was not found. Reinstall dependencies with npm install.",
@@ -127,7 +127,7 @@ export const messages = {
     no_video:
       "За цим посиланням не вдалося знайти відео. Перевірте, що це допис із роликом, а не фото чи сторіс.",
     forbidden:
-      "Платформа відхилила запит. Спробуйте інше посилання або додайте cookies.txt.",
+      "Платформа відхилила запит. Спробуйте ще раз за хвилину або інше посилання.",
     rate_limited: "Занадто багато запитів. Зачекайте хвилину і спробуйте знову.",
     timeout: "Платформа не відповіла вчасно. Спробуйте ще раз.",
     ytdlp_missing: "Не знайдено yt-dlp. Перевстановіть залежності: npm install",
